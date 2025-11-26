@@ -1,0 +1,15 @@
+#!/usr/bin/env sh
+
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🔍 Running lint check..."
+pnpm lint || {
+  echo ""
+  echo "❌ Lint errors found. Please fix them before committing."
+  echo "👉 Try fixing automatically with: pnpm lint:fix"
+  echo ""
+  exit 1
+}
+
+echo "✅ Lint check passed. Proceeding with commit."
+

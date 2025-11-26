@@ -1,0 +1,17 @@
+{
+  "name": "contract-review-system-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "prepare": "husky install",
+    "lint": "pnpm --dir frontend lint",
+    "lint:fix": "pnpm --dir frontend lint:fix",
+    "frontend:dev": "pnpm --dir frontend dev",
+    "frontend:test": "pnpm --dir frontend test"
+  },
+  "devDependencies": {
+    "husky": "^9.0.0"
+  },
+  "packageManager": "pnpm@9"
+}
+
