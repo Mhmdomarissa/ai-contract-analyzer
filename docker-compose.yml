@@ -1,9 +1,8 @@
-version: "3.9"
-
 services:
   api:
     build:
       context: ./backend
+      dockerfile: Dockerfile
     env_file:
       - backend/.env
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
@@ -14,10 +13,41 @@ services:
     depends_on:
       - db
       - redis
+      - ollama
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    env_file:
+      - backend/.env
+    command: celery -A app.tasks.celery_app worker --loglevel=INFO
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - db
+      - redis
+      - ollama
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    env_file:
+      - frontend/.env.local
+    command: sh -c "pnpm install && NODE_ENV=production pnpm build && NODE_ENV=production pnpm start"
+    volumes:
+      - ./frontend:/app
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
 
   db:
-    image: postgres:15
+    image: postgres:16
     restart: unless-stopped
+    env_file:
+      - backend/.env
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-contracts}
       POSTGRES_USER: ${POSTGRES_USER:-contract_admin}
@@ -29,7 +59,17 @@ services:
     image: redis:7
     restart: unless-stopped
     command: redis-server --save "" --appendonly no
+    volumes:
+      - redisdata:/data
+
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - /home/ec2-user/ollama:/root/.ollama
 
 volumes:
   pgdata:
-
+  redisdata:
