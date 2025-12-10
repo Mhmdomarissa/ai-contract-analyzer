@@ -98,6 +98,7 @@ class ContractVersion(Base):
     )
     version_number: Mapped[int] = mapped_column(nullable=False)
     is_current: Mapped[bool] = mapped_column(default=False, nullable=False)
+    parsed_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

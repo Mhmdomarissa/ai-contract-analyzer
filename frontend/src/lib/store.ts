@@ -1,12 +1,14 @@
 import { configureStore } from "@reduxjs/toolkit";
 
 import contractsReducer from "@/features/contracts/contractsSlice";
+import contractReducer from "@/features/contract/contractSlice";
 import { api } from "@/services/api";
 
 export const makeStore = () =>
   configureStore({
     reducer: {
       contracts: contractsReducer,
+      contract: contractReducer,
       [api.reducerPath]: api.reducer,
     },
     middleware: (getDefaultMiddleware) =>

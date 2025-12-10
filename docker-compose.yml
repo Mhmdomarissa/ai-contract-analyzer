@@ -8,12 +8,11 @@ services:
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
       - ./backend:/app
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
     depends_on:
       - db
       - redis
-      - ollama
 
   worker:
     build:
@@ -21,13 +20,12 @@ services:
       dockerfile: Dockerfile
     env_file:
       - backend/.env
-    command: celery -A app.tasks.celery_app worker --loglevel=INFO
+    command: celery -A app.tasks.celery_app worker --loglevel=INFO --queues contract-tasks
     volumes:
       - ./backend:/app
     depends_on:
       - db
       - redis
-      - ollama
 
   frontend:
     build:
@@ -35,13 +33,23 @@ services:
       dockerfile: Dockerfile
     env_file:
       - frontend/.env.local
-    command: sh -c "pnpm install && NODE_ENV=production pnpm build && NODE_ENV=production pnpm start"
+    command: sh -c "pnpm install && NODE_ENV=production pnpm build && cp -r public .next/standalone/ && cp -r .next/static .next/standalone/.next/ && PORT=3000 HOSTNAME=0.0.0.0 node .next/standalone/server.js"
     volumes:
       - ./frontend:/app
-    ports:
-      - "3000:3000"
+    expose:
+      - "3000"
     depends_on:
       - api
+
+  nginx:
+    image: nginx:1.27
+    depends_on:
+      - frontend
+      - api
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
 
   db:
     image: postgres:16
@@ -62,13 +70,7 @@ services:
     volumes:
       - redisdata:/data
 
-  ollama:
-    image: ollama/ollama:latest
-    restart: unless-stopped
-    ports:
-      - "11434:11434"
-    volumes:
-      - /home/ec2-user/ollama:/root/.ollama
+
 
 volumes:
   pgdata:

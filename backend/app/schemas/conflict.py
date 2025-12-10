@@ -35,6 +35,7 @@ class ClauseSummary(BaseModel):
     id: UUID
     clause_number: str | None = None
     heading: str | None = None
+    text: str | None = None  # Include clause text for better UX
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -45,7 +46,7 @@ class ConflictRead(BaseModel):
     severity: str
     score: Decimal | None
     summary: str | None
-    explanation: str
+    explanation: str | None = None
     contract_version_id: UUID
     status: str
     created_at: datetime

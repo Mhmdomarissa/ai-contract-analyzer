@@ -22,3 +22,26 @@ frontend/.next/
 frontend/.turbo/
 .cursor/
 
+# Ignore sensitive files
+backend/uploads/
+*.pyc
+*.pyo
+__pycache__/
+.env
+backend/.env
+*.log
+*.db
+*.sqlite
+*.sqlite3
+.DS_Store
+node_modules/
+.next/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+backend/test_*.py
+backend/test_*.txt
+docs/*.docx
+docs/*.pdf
+docs/deepdoc/
+infra/

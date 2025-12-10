@@ -55,7 +55,7 @@ class Conflict(Base):
     severity: Mapped[str] = mapped_column(String(length=16), nullable=False)
     score: Mapped[Decimal | None] = mapped_column(Numeric(6, 3))
     summary: Mapped[str | None] = mapped_column(Text)
-    explanation: Mapped[str] = mapped_column(Text, nullable=False)
+    explanation: Mapped[str | None] = mapped_column(Text, nullable=True)
     contract_version_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("contract_versions.id", ondelete="CASCADE"), nullable=False
     )

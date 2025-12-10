@@ -5,6 +5,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
+from app.schemas.conflict import AnalysisRunRead
+
 
 class ClauseGroupRead(BaseModel):
     id: UUID
@@ -26,5 +28,12 @@ class ClauseRead(BaseModel):
     text: str
     number_normalized: str | None
     created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ClauseExtractionJobRead(BaseModel):
+    run: AnalysisRunRead
+    clauses: list[ClauseRead] | None = None
 
     model_config = ConfigDict(from_attributes=True)

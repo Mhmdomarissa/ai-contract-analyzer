@@ -36,6 +36,7 @@ class ContractVersionRead(BaseModel):
     file_id: UUID
     version_number: int
     is_current: bool
+    parsed_text: str | None = None
     created_at: datetime
     file: ContractFileRead
 
