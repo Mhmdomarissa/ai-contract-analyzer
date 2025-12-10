@@ -2,7 +2,7 @@ import json
 import logging
 import os
 import re
-from typing import Any, List
+from typing import Any, List, Optional
 
 import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -93,7 +93,23 @@ class LLMService:
             schedule_text = text[schedule_start:]
         
         # Pattern definitions for different contract structures
+        # Added edge cases: parenthetical numbering, written-out numbers, hyphenated sections
         patterns = {
+            # New: Parenthetical numbering - (a), (i), (1)
+            'parenthetical': re.compile(
+                r'(?:^|\n)\s*\(([a-z\d]+)\)\s+([A-Z][^\n]{0,100})',
+                re.MULTILINE
+            ),
+            # New: Clause keyword format - "Clause 4.1:"
+            'clause_keyword': re.compile(
+                r'(?i:Clause)\s+(\d+(?:\.\d+)?)[:\-]?\s+([A-Z][^\n]{0,100})',
+                re.MULTILINE
+            ),
+            # New: Hyphenated sections - "Section 4-1"
+            'hyphenated': re.compile(
+                r'(?i:Section)\s+(\d+-\d+)[:\-]?\s+([A-Z][^\n]{0,100})',
+                re.MULTILINE
+            ),
             'article_section': re.compile(
                 r'\b(Article|ARTICLE)\s+([IVX\d]+(?:\.\d+)?)[:\.\s]+([A-Z][^\n]{0,100}?)(?=\n|$)',
                 re.MULTILINE
@@ -237,6 +253,65 @@ class LLMService:
             clauses.extend(schedule_clauses)
         
         return clauses
+    
+    @staticmethod
+    def _post_process_clauses(clauses: List[dict]) -> List[dict]:
+        """
+        Post-process extracted clauses to:
+        1. Remove duplicates (same text/position)
+        2. Filter out table of contents entries
+        3. Remove orphaned numbering (numbers without content)
+        4. Validate hierarchical structure
+        """
+        if not clauses:
+            return []
+        
+        filtered = []
+        seen_positions = set()
+        seen_texts = set()
+        
+        # TOC indicators
+        toc_patterns = [
+            re.compile(r'Page\s+\d+', re.IGNORECASE),
+            re.compile(r'\.{3,}\s*\d+'),  # Dotted lines to page numbers
+            re.compile(r'^[\d\.]+\s+[A-Z][^\n]{0,50}\s+\.{3,}'),  # "4.1 Title ....."
+        ]
+        
+        for clause in clauses:
+            text = clause.get('text', '').strip()
+            start = clause.get('start_char', 0)
+            end = clause.get('end_char', 0)
+            
+            # Skip empty or very short clauses (likely orphaned numbers)
+            if len(text) < 20:
+                logger.debug(f"Skipping short clause: {clause.get('clause_number')}")
+                continue
+            
+            # Skip duplicates (same position or text)
+            position_key = (start, end)
+            if position_key in seen_positions:
+                logger.debug(f"Skipping duplicate position: {clause.get('clause_number')}")
+                continue
+            
+            # Check for near-duplicate text (first 100 chars)
+            text_key = text[:100]
+            if text_key in seen_texts:
+                logger.debug(f"Skipping duplicate text: {clause.get('clause_number')}")
+                continue
+            
+            # Check for TOC entry
+            is_toc = any(pattern.search(text) for pattern in toc_patterns)
+            if is_toc:
+                logger.debug(f"Skipping TOC entry: {clause.get('clause_number')}")
+                continue
+            
+            # Passed all filters
+            seen_positions.add(position_key)
+            seen_texts.add(text_key)
+            filtered.append(clause)
+        
+        logger.info(f"Post-processing: {len(clauses)} -> {len(filtered)} clauses")
+        return filtered
     
     @staticmethod
     def _detect_table_in_text(text: str) -> bool:
@@ -467,10 +542,19 @@ class LLMService:
         
         return items
 
-    async def extract_clauses(self, text: str) -> List[dict]:
+    async def extract_clauses(self, text: str, enable_validation: bool = True) -> List[dict]:
         """
         Step 1: Extract clauses from the text using structure-based parsing.
         
+        Workflow:
+        1. Extract clauses using regex patterns (fast, reliable)
+        2. Apply post-processing filters (remove TOC, duplicates)
+        3. Optionally validate with LLM (check boundaries, quality)
+        
+        Args:
+            text: Full contract text
+            enable_validation: If True, use LLM to validate extracted clauses
+            
         Note: We do NOT chunk the text for structure-based extraction because
         the pattern detection needs to see the entire document to work correctly.
         Chunking would cause later chunks to fail pattern detection and fall back
@@ -486,8 +570,33 @@ class LLMService:
         )
         
         try:
+            # Step 1: Regex extraction
             clauses = await self._run_clause_extraction(text, start_index=1)
-            logger.info(f"Total clauses extracted: {len(clauses)}")
+            logger.info(f"Regex extracted: {len(clauses)} clauses")
+            
+            # Step 2: Post-processing filters
+            clauses = self._post_process_clauses(clauses)
+            logger.info(f"After post-processing: {len(clauses)} clauses")
+            
+            # Step 3: LLM validation (optional)
+            if enable_validation and clauses:
+                try:
+                    from app.services.clause_validator import ClauseValidator
+                    validator = ClauseValidator(self)
+                    result = await validator.validate_clauses(clauses, text)
+                    
+                    logger.info(
+                        f"LLM validation: {len(result.validated_clauses)} valid, "
+                        f"{len(result.removed_clauses)} removed, "
+                        f"quality: {result.overall_quality:.2f}"
+                    )
+                    
+                    # Return validated clauses
+                    clauses = result.validated_clauses
+                except Exception as e:
+                    logger.warning(f"LLM validation failed, using unvalidated clauses: {e}")
+            
+            logger.info(f"Final clause count: {len(clauses)}")
             return clauses
         except Exception as e:
             logger.error(f"Failed to extract clauses: {e}")
@@ -604,11 +713,13 @@ class LLMService:
         
         This uses regex to directly detect numbered sections (1., 2., 3., etc.)
         which is more reliable than LLM-provided character indices.
+        
+        Note: Post-processing is handled in extract_clauses() method.
         """
         # Use structure-based extraction (regex parsing of numbered sections)
         clauses = self.extract_clauses_by_structure(text)
         
-        logger.info(f"Extracted {len(clauses)} clauses using structure-based parsing")
+        logger.info(f"Extracted {len(clauses)} raw clauses using structure-based parsing")
         return clauses
 
     def _build_conflict_detection_prompt(self, clauses: List[dict]) -> str:

@@ -65,7 +65,15 @@ async def _run_clause_extraction(run_id: UUID) -> None:
             raise ValueError("Unable to extract text from document for clause extraction")
 
         llm = LLMService(base_url=settings.OLLAMA_URL)
-        clauses_payload = await llm.extract_clauses(text)
+        
+        # Enable validation for production quality
+        # Set to False for faster extraction during development
+        enable_validation = settings.ENABLE_CLAUSE_VALIDATION if hasattr(settings, 'ENABLE_CLAUSE_VALIDATION') else True
+        
+        logger.info(f"Extracting clauses (validation: {enable_validation})...")
+        clauses_payload = await llm.extract_clauses(text, enable_validation=enable_validation)
+        
+        logger.info(f"Extracted {len(clauses_payload)} clauses")
 
         session.query(Clause).filter(Clause.contract_version_id == contract_version.id).delete(
             synchronize_session=False
@@ -74,6 +82,7 @@ async def _run_clause_extraction(run_id: UUID) -> None:
         for index, clause_data in enumerate(clauses_payload):
             # Extract metadata if present
             metadata = clause_data.get('metadata', {})
+            validation = clause_data.get('validation', {})
             
             # Determine if this is a special clause type
             clause_type = metadata.get('type', 'standard')
@@ -85,6 +94,17 @@ async def _run_clause_extraction(run_id: UUID) -> None:
             if metadata.get('schedule_type'):
                 heading = f"{metadata['schedule_type']} - {heading}"
             
+            # Add validation quality indicator
+            if validation and 'quality_score' in validation:
+                quality_score = validation['quality_score']
+                if quality_score >= 0.8:
+                    quality_indicator = '✓'
+                elif quality_score >= 0.5:
+                    quality_indicator = '~'
+                else:
+                    quality_indicator = '!'
+                heading = f"{quality_indicator} {heading}"
+            
             clause = Clause(
                 contract_version_id=contract_version.id,
                 text=clause_data.get('text', ''),
@@ -94,6 +114,21 @@ async def _run_clause_extraction(run_id: UUID) -> None:
                 order_index=index,
             )
             session.add(clause)
+        
+        # Log extraction statistics
+        if enable_validation:
+            avg_quality = sum(
+                c.get('validation', {}).get('quality_score', 0) 
+                for c in clauses_payload
+            ) / max(len(clauses_payload), 1)
+            logger.info(f"Average clause quality: {avg_quality:.2f}")
+            
+            issues_count = sum(
+                len(c.get('validation', {}).get('issues', []))
+                for c in clauses_payload
+            )
+            if issues_count > 0:
+                logger.warning(f"Found {issues_count} validation issues across clauses")
 
         run.status = "COMPLETED"
         run.finished_at = datetime.utcnow()
