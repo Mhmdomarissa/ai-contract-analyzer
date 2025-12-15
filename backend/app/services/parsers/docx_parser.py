@@ -1,6 +1,7 @@
 """
 Advanced DOCX Parser with table extraction and intelligent formatting
 Adapted from RAGFlow DocxParser
+Enhanced with docx2python for numbered list preservation
 """
 import logging
 import re
@@ -10,6 +11,13 @@ from collections import Counter
 
 import pandas as pd
 from docx import Document
+
+try:
+    from docx2python import docx2python
+    HAS_DOCX2PYTHON = True
+except ImportError:
+    HAS_DOCX2PYTHON = False
+    logger.warning("docx2python not installed - numbered lists may not be preserved correctly")
 
 from .utils import num_tokens_from_string
 
@@ -21,15 +29,17 @@ class AdvancedDocxParser:
     Advanced DOCX parser that extracts text, tables, and maintains structure.
     """
     
-    def __init__(self, extract_tables: bool = True):
+    def __init__(self, extract_tables: bool = True, preserve_numbering: bool = True):
         """
         Initialize DOCX parser.
         
         Args:
             extract_tables: Enable structured table extraction
+            preserve_numbering: Use docx2python to preserve numbered lists (requires docx2python)
         """
         self.doc = None
         self.extract_tables = extract_tables
+        self.preserve_numbering = preserve_numbering and HAS_DOCX2PYTHON
         self.extracted_tables = []  # Store structured tables
     
     def parse(self, file_path: str = None, binary: bytes = None, 
@@ -46,6 +56,17 @@ class AdvancedDocxParser:
         Returns:
             Full extracted text
         """
+        # Use docx2python if available and numbering preservation is enabled
+        if self.preserve_numbering and file_path:
+            try:
+                text = self._parse_with_docx2python(file_path)
+                if text:
+                    logger.info("Successfully parsed DOCX with numbered list preservation")
+                    return text
+            except Exception as e:
+                logger.warning(f"docx2python parsing failed, falling back to python-docx: {e}")
+        
+        # Fall back to standard parsing
         sections, tables = self._parse_with_structure(file_path, binary, from_page, to_page)
         
         # Combine sections and tables
@@ -58,6 +79,47 @@ class AdvancedDocxParser:
             text_parts.extend(table)
         
         return "\n\n".join(text_parts)
+    
+    def _parse_with_docx2python(self, file_path: str) -> str:
+        """
+        Parse DOCX using docx2python to preserve numbered lists.
+        
+        Args:
+            file_path: Path to DOCX file
+            
+        Returns:
+            Extracted text with numbering preserved
+        """
+        if not HAS_DOCX2PYTHON:
+            return None
+        
+        try:
+            # Extract content with docx2python
+            doc_result = docx2python(file_path)
+            
+            # Get text content
+            text = doc_result.text
+            
+            # Also extract tables if enabled
+            if self.extract_tables:
+                # Load with python-docx for structured table extraction
+                self.doc = Document(file_path)
+                self.extracted_tables = []
+                for idx, table in enumerate(self.doc.tables):
+                    structured = self._extract_structured_table(table, idx)
+                    if structured:
+                        self.extracted_tables.append(structured)
+            
+            # Clean up the docx2python output
+            # It uses special markers that we should clean
+            text = text.replace('----', '\n')  # docx2python uses ---- for separators
+            text = re.sub(r'\n{3,}', '\n\n', text)  # Remove excessive newlines
+            
+            return text
+            
+        except Exception as e:
+            logger.error(f"Error in docx2python parsing: {e}")
+            return None
     
     def _parse_with_structure(self, file_path: str = None, binary: bytes = None,
                               from_page: int = 0, to_page: int = 100000000) -> Tuple[List[Tuple[str, str]], List[List[str]]]:

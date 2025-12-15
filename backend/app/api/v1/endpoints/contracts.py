@@ -6,7 +6,7 @@ from uuid import UUID
 
 import logging
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.v1.dependencies import get_db
@@ -24,6 +24,13 @@ from app.models.clause import Clause
 from app.models.conflict import Conflict, AnalysisRun
 from app.services import contracts as contract_service
 from app.services import document_parser
+from app.services.document_parser import (
+    DocumentParsingError,
+    FileSizeError,
+    FileTypeError,
+    EncryptedFileError,
+    EmptyContentError
+)
 from app.tasks.clause_extraction import enqueue_clause_extraction
 from app.services.llm_service import LLMService
 
@@ -38,7 +45,29 @@ async def upload_contract(
     title: str = Form(...),
     db: Session = Depends(get_db)
 ) -> ContractRead:
-    # 1. Save the file locally
+    """
+    Upload and parse a contract document.
+    
+    Validates file size, type, and encryption before processing.
+    Extracts text content and creates contract record in database.
+    """
+    # 1. Pre-upload validation
+    if not file.filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File name is required"
+        )
+    
+    # Check file extension
+    file_ext = Path(file.filename).suffix.lower()
+    if file_ext not in document_parser.SUPPORTED_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported file type: {file_ext}. "
+                   f"Supported types: {', '.join(sorted(document_parser.SUPPORTED_EXTENSIONS))}"
+        )
+    
+    # 2. Save the file locally
     upload_dir = Path("uploads")
     upload_dir.mkdir(exist_ok=True)
     
@@ -47,12 +76,29 @@ async def upload_contract(
     try:
         with file_path.open("wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
+    except Exception as e:
+        logger.error(f"Failed to save uploaded file: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to save file: {str(e)}"
+        )
     finally:
         file.file.close()
-        
+    
     file_size = file_path.stat().st_size
     
-    # 2. Create Contract in DB
+    # 3. Validate file size early (before DB creation)
+    file_size_mb = file_size / (1024 * 1024)
+    if file_size_mb > document_parser.MAX_FILE_SIZE_MB:
+        # Clean up the file
+        file_path.unlink(missing_ok=True)
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File size ({file_size_mb:.1f}MB) exceeds maximum allowed "
+                   f"({document_parser.MAX_FILE_SIZE_MB}MB)"
+        )
+    
+    # 4. Create Contract in DB
     contract_in = ContractCreate(
         title=title,
         file=ContractFileCreate(
@@ -63,15 +109,27 @@ async def upload_contract(
         )
     )
     
-    contract = contract_service.create_contract_with_file_and_version(db, contract_in)
-    db.commit()
-    db.refresh(contract)
-    
-    # 3. Parse Document and save to version
-    parsed_text = None
     try:
+        contract = contract_service.create_contract_with_file_and_version(db, contract_in)
+        db.commit()
+        db.refresh(contract)
+    except Exception as e:
+        logger.error(f"Failed to create contract in database: {e}")
+        # Clean up the file
+        file_path.unlink(missing_ok=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create contract record: {str(e)}"
+        )
+    
+    # 5. Parse Document with comprehensive error handling
+    parsed_text = None
+    parsing_error = None
+    
+    try:
+        logger.info(f"Parsing document: {file.filename} ({file_size_mb:.1f}MB)")
         parsed_text = document_parser.parse_document(str(file_path))
-        logger.info(f"Extracted text length: {len(parsed_text) if parsed_text else 0}")
+        logger.info(f"✅ Successfully extracted {len(parsed_text)} characters")
         
         # Save parsed text to the version
         latest_version = db.query(ContractVersion).filter(
@@ -83,13 +141,70 @@ async def upload_contract(
             latest_version.parsed_text = parsed_text
             db.commit()
             db.refresh(latest_version)
-    except Exception as e:
-        logger.error(f"Failed to parse document: {e}")
-        # We don't fail the upload, but we log it.
+            
+    except EncryptedFileError as e:
+        parsing_error = str(e)
+        logger.error(f"Encrypted file uploaded: {e}")
+        # Rollback the contract creation
+        db.rollback()
+        file_path.unlink(missing_ok=True)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
         
+    except FileSizeError as e:
+        parsing_error = str(e)
+        logger.error(f"File size error: {e}")
+        # Rollback the contract creation
+        db.rollback()
+        file_path.unlink(missing_ok=True)
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=str(e)
+        )
+        
+    except FileTypeError as e:
+        parsing_error = str(e)
+        logger.error(f"File type error: {e}")
+        # Rollback the contract creation
+        db.rollback()
+        file_path.unlink(missing_ok=True)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+        
+    except EmptyContentError as e:
+        parsing_error = str(e)
+        logger.error(f"Empty content error: {e}")
+        # Rollback the contract creation
+        db.rollback()
+        file_path.unlink(missing_ok=True)
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e)
+        )
+        
+    except DocumentParsingError as e:
+        parsing_error = str(e)
+        logger.error(f"Document parsing error: {e}")
+        # Keep contract record but mark as failed
+        logger.warning("Contract record kept but parsing failed")
+        
+    except Exception as e:
+        parsing_error = str(e)
+        logger.error(f"Unexpected error parsing document: {e}", exc_info=True)
+        # Keep contract record but mark as failed
+        logger.warning("Contract record kept but parsing failed with unexpected error")
+        
+    # 6. Return the contract (even if parsing failed, for audit purposes)
     enriched_contract, latest_version = contract_service.get_contract_with_latest_version(db, contract.id)
     if not enriched_contract:
-        raise HTTPException(status_code=500, detail="Unable to load saved contract")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to load saved contract"
+        )
 
     contract_payload = ContractRead.model_validate(enriched_contract, from_attributes=True)
     if latest_version:

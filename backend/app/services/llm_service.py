@@ -61,12 +61,16 @@ class LLMService:
     @staticmethod
     def extract_clauses_by_structure(text: str) -> List[dict]:
         """
-        Advanced clause extraction supporting:
-        - Multiple numbering schemes (1., I., Article, etc.)
-        - Hierarchical structures (Article > Section > Subsection)
-        - Tables, schedules, and exhibits
-        - Cross-references and nested lists
-        - Multi-level indexing
+        Production-ready clause extraction using proven patterns.
+        
+        Features:
+        - Generic patterns that work with any contract format
+        - Hierarchical structures (1., 1.1, 1.1.1)
+        - All-caps headings (DEFINITIONS, PAYMENT TERMS, etc.)
+        - Appendices/Schedules/Exhibits
+        - No assumptions about text format after numbers
+        
+        Based on battle-tested implementation from clause_extractor_faizan.py
         
         Args:
             text: The full contract text
@@ -74,81 +78,137 @@ class LLMService:
         Returns:
             List of clause dicts with clause_number, category, start_char, end_char, text
         """
-        clauses = []
+        if not text or not text.strip():
+            return []
         
-        # Detect schedules/exhibits first (they're typically at the end)
-        schedule_match = re.search(
-            r'\n\s*(SCHEDULE[S]?|EXHIBIT[S]?|APPENDIX|ANNEX|ATTACHMENT)[:\s]',
-            text,
-            re.IGNORECASE | re.MULTILINE
+        # Normalize text
+        text = text.replace('\r\n', '\n')
+        
+        clauses = []
+        boundaries = []
+        
+        # Define flexible patterns (order matters - more specific first)
+        
+        # 1. Appendices/Schedules/Exhibits (high priority)
+        appendix_pattern = re.compile(
+            r'(?:^|\n)\s*((?:APPENDIX|ANNEX|SCHEDULE|EXHIBIT)\s+[A-Z0-9]+(?:[:\s\-]|(?=\n)))',
+            re.MULTILINE | re.IGNORECASE
         )
         
-        main_text = text
-        schedule_text = None
-        schedule_start = None
+        # 2. Sub-sub-clauses: "1.1.1", "2.3.4", etc.
+        sub_sub_clause_pattern = re.compile(
+            r'(?:^|\n)\s*(\d+\.\d+\.\d+)\s+(?=\S)',
+            re.MULTILINE
+        )
         
-        if schedule_match:
-            schedule_start = schedule_match.start()
-            main_text = text[:schedule_start]
-            schedule_text = text[schedule_start:]
+        # 3. Sub-clauses: "1.1", "2.3", etc.
+        sub_clause_pattern = re.compile(
+            r'(?:^|\n)\s*(\d+\.\d+)\s+(?=\S)',
+            re.MULTILINE
+        )
         
-        # Pattern definitions for different contract structures
-        # Added edge cases: parenthetical numbering, written-out numbers, hyphenated sections
-        patterns = {
-            # New: Parenthetical numbering - (a), (i), (1)
-            'parenthetical': re.compile(
-                r'(?:^|\n)\s*\(([a-z\d]+)\)\s+([A-Z][^\n]{0,100})',
-                re.MULTILINE
-            ),
-            # New: Clause keyword format - "Clause 4.1:"
-            'clause_keyword': re.compile(
-                r'(?i:Clause)\s+(\d+(?:\.\d+)?)[:\-]?\s+([A-Z][^\n]{0,100})',
-                re.MULTILINE
-            ),
-            # New: Hyphenated sections - "Section 4-1"
-            'hyphenated': re.compile(
-                r'(?i:Section)\s+(\d+-\d+)[:\-]?\s+([A-Z][^\n]{0,100})',
-                re.MULTILINE
-            ),
-            'article_section': re.compile(
-                r'\b(Article|ARTICLE)\s+([IVX\d]+(?:\.\d+)?)[:\.\s]+([A-Z][^\n]{0,100}?)(?=\n|$)',
-                re.MULTILINE
-            ),
-            'section_subsection': re.compile(
-                r'\b(Section|SECTION)\s+(\d+(?:\.\d+)?)[:\.\s]+([A-Z][^\n]{0,100}?)(?=\n|$)',
-                re.MULTILINE
-            ),
-            'numbered': re.compile(
-                r'(?:^|\n|[\."\s])\s*(\d{1,2})\.\s+([A-Z][A-Za-z\s&,\-\']{2,50}?)(?:\s+(?:[A-Z][a-z]+|The |This |Either |Any ))',
-                re.MULTILINE
-            ),
-            'roman': re.compile(
-                r'(?:^|\n)\s*([IVX]{1,6})\.\s+([A-Z][A-Za-z\s&\-]{2,50}?)(?=\s)',
-                re.MULTILINE
-            ),
-            'heading': re.compile(
-                r'^([A-Z][A-Z\s&\-]{4,50}?)$',
-                re.MULTILINE
-            ),
-            'lettered': re.compile(
-                r'(?:^|\n)\s*\(([a-z])\)\s+([A-Z][^\n]{0,100}?)(?=\n|$)',
-                re.MULTILINE
-            ),
-        }
+        # 4. Main numbered clauses: "1.", "2.", "10.", etc.
+        main_clause_pattern = re.compile(
+            r'(?:^|\n)\s*(\d+)\.\s+(?=\S)',
+            re.MULTILINE
+        )
         
-        # Try patterns in priority order
-        best_matches = []
-        best_pattern = None
+        # 5. Article/Section with numbers: "Article 1", "Section 2.3"
+        article_section_pattern = re.compile(
+            r'(?:^|\n)\s*((?:Article|ARTICLE|Section|SECTION)\s+(?:[IVX]+|\d+)(?:\.\d+)?)\s*[:\-]?\s*(?=\S)',
+            re.MULTILINE
+        )
         
-        for pattern_name in ['article_section', 'section_subsection', 'numbered', 'roman', 'heading']:
-            matches = list(patterns[pattern_name].finditer(main_text))
-            if len(matches) >= 3:  # Need at least 3 matches to consider valid structure
-                best_matches = matches
-                best_pattern = pattern_name
-                break
+        # 6. All-caps headings (flexible - matches any line that's mostly uppercase)
+        heading_pattern = re.compile(
+            r'(?:^|\n)\s*([A-Z][A-Z\s&,\-]{6,80}?)\s*(?=\n|$)',
+            re.MULTILINE
+        )
         
-        if not best_matches:
-            # Fallback: return entire document
+        # 7. Lettered clauses: "(a)", "(b)", "(i)", "(ii)"
+        lettered_pattern = re.compile(
+            r'(?:^|\n)\s*(\([a-z]+\)|\([ivx]+\))\s+(?=\S)',
+            re.MULTILINE | re.IGNORECASE
+        )
+        
+        # 8. Roman numerals: "I.", "II.", "III."
+        roman_pattern = re.compile(
+            r'(?:^|\n)\s*([IVX]{1,6})\.\s+(?=\S)',
+            re.MULTILINE
+        )
+        
+        # Find all boundaries with their types
+        
+        # Appendices (highest priority)
+        for match in appendix_pattern.finditer(text):
+            label = match.group(1).strip()
+            boundaries.append((match.start(1), label, 'appendix'))
+            logger.debug(f"Found appendix: {label} at pos {match.start(1)}")
+        
+        # Hierarchical clauses (do sub-sub before sub, sub before main)
+        for match in sub_sub_clause_pattern.finditer(text):
+            label = match.group(1)
+            boundaries.append((match.start(1), label, 'sub_sub'))
+        
+        for match in sub_clause_pattern.finditer(text):
+            label = match.group(1)
+            # Skip if it's actually a sub-sub-clause (already handled)
+            if not any(b[1].startswith(label + '.') for b in boundaries if b[2] == 'sub_sub'):
+                boundaries.append((match.start(1), label, 'sub'))
+        
+        for match in main_clause_pattern.finditer(text):
+            label = match.group(1)
+            # Skip if it's actually a sub-clause (already handled)
+            if not any(b[1].startswith(label + '.') for b in boundaries if b[2] in ('sub', 'sub_sub')):
+                boundaries.append((match.start(1), label, 'main'))
+        
+        # Article/Section patterns
+        for match in article_section_pattern.finditer(text):
+            label = match.group(1).strip()
+            boundaries.append((match.start(1), label, 'article_section'))
+        
+        # All-caps headings
+        for match in heading_pattern.finditer(text):
+            heading = match.group(1).strip()
+            # Skip if it's actually an appendix (handled above)
+            heading_upper = heading.upper()
+            if any(keyword in heading_upper for keyword in ['APPENDIX', 'ANNEX', 'SCHEDULE', 'EXHIBIT']):
+                continue
+            # Skip common preamble words
+            if any(word in heading_upper for word in ['WITNESSETH', 'RECITALS', 'WHEREAS', 'NOW THEREFORE']):
+                continue
+            # Verify it's mostly uppercase
+            if LLMService._is_all_caps(heading):
+                boundaries.append((match.start(1), heading, 'heading'))
+        
+        # Lettered clauses
+        for match in lettered_pattern.finditer(text):
+            label = match.group(1)
+            boundaries.append((match.start(1), label, 'lettered'))
+        
+        # Roman numerals
+        for match in roman_pattern.finditer(text):
+            label = match.group(1)
+            boundaries.append((match.start(1), label, 'roman'))
+        
+        # Sort by position and remove duplicates at same position
+        boundaries.sort(key=lambda x: x[0])
+        unique_boundaries = []
+        seen_positions = set()
+        for pos, label, btype in boundaries:
+            # Allow boundaries at same position only if different types
+            key = (pos // 5, btype)  # Group positions within 5 chars
+            if key not in seen_positions:
+                unique_boundaries.append((pos, label, btype))
+                seen_positions.add(key)
+        
+        boundaries = unique_boundaries
+        
+        logger.info(f"Found {len(boundaries)} clause boundaries")
+        
+        if not boundaries:
+            # No structure detected - return entire document
+            logger.warning("No clause boundaries found, returning entire document as single clause")
             return [{
                 'clause_number': '0',
                 'category': 'Full Document',
@@ -158,163 +218,129 @@ class LLMService:
                 'metadata': {'type': 'unstructured'}
             }]
         
-        # Deduplicate and filter matches
-        filtered_matches = []
-        seen_identifiers = set()
-        
-        for match in best_matches:
-            if best_pattern == 'heading':
-                identifier = match.group(1).strip()
-                title = identifier
-                # Skip common non-clause headings
-                skip_words = {'WITNESSETH', 'RECITALS', 'WHEREAS', 'NOW THEREFORE', 'BACKGROUND'}
-                if identifier in skip_words or len(identifier.split()) > 6:
-                    continue
-            else:
-                identifier = match.group(1) + (match.group(2) if len(match.groups()) > 2 else '')
-                title = match.group(3).strip() if len(match.groups()) > 2 else match.group(2).strip()
-            
-            if identifier not in seen_identifiers:
-                filtered_matches.append((match, identifier, title))
-                seen_identifiers.add(identifier)
-        
-        # Sort by position
-        filtered_matches.sort(key=lambda x: x[0].start())
-        
-        # Handle preamble
-        if filtered_matches and filtered_matches[0][0].start() > 50:
-            preamble_text = main_text[:filtered_matches[0][0].start()].strip()
-            if preamble_text:
+        # Extract preamble (text before first boundary)
+        first_boundary_pos = boundaries[0][0]
+        if first_boundary_pos > 50:
+            preamble_text = text[:first_boundary_pos].strip()
+            if preamble_text and len(preamble_text) > 20:
                 clauses.append({
                     'clause_number': 'Preamble',
                     'category': 'Preamble and Parties',
                     'start_char': 0,
-                    'end_char': filtered_matches[0][0].start(),
+                    'end_char': first_boundary_pos,
                     'text': preamble_text,
                     'metadata': {'type': 'preamble'}
                 })
         
-        # Extract main clauses with hierarchical sub-clauses
-        for i, (match, identifier, title) in enumerate(filtered_matches):
-            start_pos = match.start()
-            
+        # Extract each clause
+        for i, (boundary_pos, boundary_label, boundary_type) in enumerate(boundaries):
             # Determine end position
-            if i < len(filtered_matches) - 1:
-                end_pos = filtered_matches[i + 1][0].start()
+            if i < len(boundaries) - 1:
+                end_pos = boundaries[i + 1][0]
             else:
-                end_pos = len(main_text)
+                end_pos = len(text)
             
-            clause_text = main_text[start_pos:end_pos].strip()
+            # Extract clause text
+            clause_text = text[boundary_pos:end_pos].strip()
             
-            # Detect if clause contains tables
+            # Skip if too short (likely a false positive)
+            if len(clause_text) < 20:
+                logger.debug(f"Skipping short clause: {boundary_label}")
+                continue
+            
+            # Extract title from the clause text (first line or first 100 chars)
+            title_match = re.search(r'^[^\n]{1,100}', clause_text)
+            if title_match:
+                title = title_match.group(0).strip()
+                # Clean up title - remove the number prefix
+                title = re.sub(r'^\s*(?:\d+\.)+\s*', '', title)
+                title = re.sub(r'^(?:APPENDIX|SCHEDULE|EXHIBIT|ANNEX)\s+[A-Z0-9]+\s*[:\-]?\s*', '', title, flags=re.IGNORECASE)
+            else:
+                title = boundary_label
+            
+            # Categorize clause
+            category = LLMService._categorize_clause(clause_text, boundary_label)
+            
+            # Detect tables
             has_table = LLMService._detect_table_in_text(clause_text)
             
-            # Extract hierarchical sub-clauses (e.g., 4.1, 4.2, 5.1, etc.)
-            # First try pattern-based extraction for explicitly numbered subsections
-            hierarchical_subclauses = LLMService._extract_hierarchical_subclauses(
-                clause_text, identifier, start_pos
-            )
+            clauses.append({
+                'clause_number': boundary_label,
+                'category': category if category != 'Uncategorized' else title[:50],
+                'start_char': boundary_pos,
+                'end_char': end_pos,
+                'text': clause_text,
+                'metadata': {
+                    'type': boundary_type,
+                    'has_table': has_table,
+                }
+            })
             
-            # Debug logging
-            if hierarchical_subclauses:
-                logger.info(f"Found {len(hierarchical_subclauses)} hierarchical subclauses for clause '{identifier}'")
-            
-            # If hierarchical sub-clauses found (minimum 2), add them instead of the parent
-            if len(hierarchical_subclauses) >= 2:
-                clauses.extend(hierarchical_subclauses)
-            else:
-                # No explicit sub-clauses, add the main clause
-                # Note: In future, we could use LLM to intelligently split long clauses
-                # into semantic sub-clauses with descriptive titles
-                subsections = LLMService._extract_subsections(clause_text, best_pattern)
-                cross_refs = LLMService._extract_cross_references(clause_text)
-                
-                clauses.append({
-                    'clause_number': identifier,
-                    'category': title,
-                    'start_char': start_pos,
-                    'end_char': end_pos,
-                    'text': clause_text,
-                    'metadata': {
-                        'type': best_pattern,
-                        'has_table': has_table,
-                        'subsection_count': len(subsections),
-                        'cross_references': cross_refs,
-                        'parent_clause': None
-                    }
-                })
+            logger.debug(f"Extracted clause: {boundary_label} ({category}) - {len(clause_text)} chars")
         
-        # Process schedules/exhibits if found
-        if schedule_text:
-            schedule_clauses = LLMService._extract_schedules_and_exhibits(
-                schedule_text, 
-                schedule_start
-            )
-            clauses.extend(schedule_clauses)
-        
+        logger.info(f"Successfully extracted {len(clauses)} clauses")
         return clauses
     
     @staticmethod
-    def _post_process_clauses(clauses: List[dict]) -> List[dict]:
-        """
-        Post-process extracted clauses to:
-        1. Remove duplicates (same text/position)
-        2. Filter out table of contents entries
-        3. Remove orphaned numbering (numbers without content)
-        4. Validate hierarchical structure
-        """
-        if not clauses:
-            return []
+    def _is_all_caps(text: str) -> bool:
+        """Check if text is all uppercase (ignoring spaces and punctuation)."""
+        if not text:
+            return False
+        # Remove spaces and common punctuation
+        cleaned = re.sub(r'[\s\-\.,;:!?()&]', '', text)
+        if not cleaned:
+            return False
+        # Count uppercase vs total letters
+        letters = [c for c in cleaned if c.isalpha()]
+        if not letters:
+            return False
+        uppercase = sum(1 for c in letters if c.isupper())
+        return uppercase / len(letters) > 0.8  # At least 80% uppercase
+    
+    @staticmethod
+    def _categorize_clause(text: str, clause_number: str) -> str:
+        """Categorize clause based on content keywords."""
+        text_upper = text.upper()
         
-        filtered = []
-        seen_positions = set()
-        seen_texts = set()
+        # Common clause categories with flexible keyword matching
+        categories = {
+            'DEFINITIONS': ['DEFINITION', 'DEFINITIONS', 'INTERPRETATION', 'MEANING'],
+            'PARTIES': ['PARTIES', 'PARTY', 'CLIENT', 'AGENCY', 'CONTRACTOR', 'VENDOR', 'SUPPLIER'],
+            'TERM': ['TERM', 'DURATION', 'EFFECTIVE DATE', 'COMMENCEMENT', 'SOLE AGREEMENT', 'PERIOD'],
+            'SCOPE': ['SCOPE', 'SERVICES', 'WORK', 'DELIVERABLES', 'PROVISION', 'OBLIGATIONS'],
+            'PAYMENT': ['PAYMENT', 'FEE', 'PRICE', 'COMPENSATION', 'INVOICE', 'RATE', 'CHARGEABLE', 'COST'],
+            'TERMINATION': ['TERMINATION', 'EXPIRATION', 'CANCELLATION', 'END OF AGREEMENT'],
+            'CONFIDENTIALITY': ['CONFIDENTIAL', 'NON-DISCLOSURE', 'PRIVACY', 'PROPRIETARY'],
+            'LIABILITY': ['LIABILITY', 'INDEMNIFICATION', 'DAMAGES', 'WARRANTY', 'WARRANTIES'],
+            'DISPUTE': ['DISPUTE', 'ARBITRATION', 'GOVERNING LAW', 'JURISDICTION', 'LITIGATION'],
+            'GENERAL': ['ENTIRE AGREEMENT', 'AMENDMENT', 'NOTICES', 'ASSIGNMENT', 'FORCE MAJEURE', 'SEVERABILITY'],
+            'APPENDIX': ['APPENDIX', 'ANNEX', 'SCHEDULE', 'EXHIBIT'],
+        }
         
-        # TOC indicators
-        toc_patterns = [
-            re.compile(r'Page\s+\d+', re.IGNORECASE),
-            re.compile(r'\.{3,}\s*\d+'),  # Dotted lines to page numbers
-            re.compile(r'^[\d\.]+\s+[A-Z][^\n]{0,50}\s+\.{3,}'),  # "4.1 Title ....."
-        ]
+        for category, keywords in categories.items():
+            if any(keyword in text_upper[:200] for keyword in keywords):  # Check first 200 chars
+                return category
         
-        for clause in clauses:
-            text = clause.get('text', '').strip()
-            start = clause.get('start_char', 0)
-            end = clause.get('end_char', 0)
-            
-            # Skip empty or very short clauses (likely orphaned numbers)
-            if len(text) < 20:
-                logger.debug(f"Skipping short clause: {clause.get('clause_number')}")
-                continue
-            
-            # Skip duplicates (same position or text)
-            position_key = (start, end)
-            if position_key in seen_positions:
-                logger.debug(f"Skipping duplicate position: {clause.get('clause_number')}")
-                continue
-            
-            # Check for near-duplicate text (first 100 chars)
-            text_key = text[:100]
-            if text_key in seen_texts:
-                logger.debug(f"Skipping duplicate text: {clause.get('clause_number')}")
-                continue
-            
-            # Check for TOC entry
-            is_toc = any(pattern.search(text) for pattern in toc_patterns)
-            if is_toc:
-                logger.debug(f"Skipping TOC entry: {clause.get('clause_number')}")
-                continue
-            
-            # Passed all filters
-            seen_positions.add(position_key)
-            seen_texts.add(text_key)
-            filtered.append(clause)
-        
-        logger.info(f"Post-processing: {len(clauses)} -> {len(filtered)} clauses")
-        return filtered
+        return 'Uncategorized'
     
     @staticmethod
     def _detect_table_in_text(text: str) -> bool:
+        """Detect if text contains table-like structures."""
+        # Look for common table indicators
+        table_indicators = [
+            r'[│┤├┼┴┬┌┐└┘─]',  # Box drawing characters
+            r'\|\s+\w+\s+\|',  # Pipe-separated columns
+            r'[-─]{3,}',  # Horizontal lines
+            r'(?:\t|  {2,})\w+(?:\t|  {2,})\w+',  # Tab or multi-space separated columns
+        ]
+        
+        for pattern in table_indicators:
+            if re.search(pattern, text):
+                return True
+        return False
+    
+    @staticmethod
+    def _extract_hierarchical_subclauses(clause_text: str, parent_number: str, parent_start_pos: int) -> List[dict]:
         """Detect if text contains table-like structures."""
         # Look for common table indicators
         table_indicators = [
@@ -574,11 +600,7 @@ class LLMService:
             clauses = await self._run_clause_extraction(text, start_index=1)
             logger.info(f"Regex extracted: {len(clauses)} clauses")
             
-            # Step 2: Post-processing filters
-            clauses = self._post_process_clauses(clauses)
-            logger.info(f"After post-processing: {len(clauses)} clauses")
-            
-            # Step 3: LLM validation (optional)
+            # Step 2: LLM validation (optional)
             if enable_validation and clauses:
                 try:
                     from app.services.clause_validator import ClauseValidator

@@ -1,5 +1,6 @@
 import logging
 import mimetypes
+import os
 from pathlib import Path
 
 import docx
@@ -23,6 +24,40 @@ logger = logging.getLogger(__name__)
 # Flag to use advanced parsers (set to True after dependencies are installed)
 USE_ADVANCED_PARSERS = True
 
+# Configuration constants
+MAX_FILE_SIZE_MB = 100  # Maximum file size in MB
+MIN_TEXT_LENGTH = 10    # Minimum extracted text length
+SUPPORTED_EXTENSIONS = {
+    '.pdf', '.docx', '.doc', '.xlsx', '.xls', '.csv',
+    '.pptx', '.ppt', '.html', '.htm', '.md', '.txt',
+    '.json', '.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif'
+}
+
+
+class DocumentParsingError(Exception):
+    """Base exception for document parsing errors."""
+    pass
+
+
+class FileSizeError(DocumentParsingError):
+    """File size exceeds maximum allowed."""
+    pass
+
+
+class FileTypeError(DocumentParsingError):
+    """Unsupported file type."""
+    pass
+
+
+class EncryptedFileError(DocumentParsingError):
+    """File is encrypted and cannot be parsed."""
+    pass
+
+
+class EmptyContentError(DocumentParsingError):
+    """File parsed but no text content extracted."""
+    pass
+
 
 def parse_document(file_path: str) -> str:
     """
@@ -35,13 +70,52 @@ def parse_document(file_path: str) -> str:
         
     Returns:
         Extracted text as a string.
+        
+    Raises:
+        FileNotFoundError: File does not exist
+        FileSizeError: File exceeds maximum size
+        FileTypeError: Unsupported file type
+        EncryptedFileError: File is encrypted
+        EmptyContentError: No text content extracted
+        DocumentParsingError: General parsing error
     """
     path = Path(file_path)
+    
+    # Validation 1: File exists
     if not path.exists():
         raise FileNotFoundError(f"File not found: {file_path}")
+    
+    # Validation 2: File size
+    file_size_mb = path.stat().st_size / (1024 * 1024)
+    if file_size_mb > MAX_FILE_SIZE_MB:
+        raise FileSizeError(
+            f"File size ({file_size_mb:.1f}MB) exceeds maximum allowed ({MAX_FILE_SIZE_MB}MB). "
+            f"Please upload a smaller file."
+        )
+    
+    # Validation 3: File type
+    suffix = path.suffix.lower()
+    if suffix not in SUPPORTED_EXTENSIONS:
+        raise FileTypeError(
+            f"Unsupported file type: {suffix}. "
+            f"Supported types: {', '.join(sorted(SUPPORTED_EXTENSIONS))}"
+        )
+    
+    # Validation 4: Check for encrypted PDF
+    if suffix == ".pdf":
+        try:
+            reader = PdfReader(str(path))
+            if reader.is_encrypted:
+                raise EncryptedFileError(
+                    "PDF is encrypted. Please provide an unencrypted version of the document."
+                )
+        except EncryptedFileError:
+            raise
+        except Exception as e:
+            logger.warning(f"Could not check PDF encryption status: {e}")
 
     mime_type, _ = mimetypes.guess_type(path)
-    logger.info(f"Parsing file: {file_path}, Mime: {mime_type}")
+    logger.info(f"Parsing file: {file_path} ({file_size_mb:.1f}MB), Type: {suffix}, Mime: {mime_type}")
 
     text = ""
     method = "unknown"
@@ -104,9 +178,12 @@ def parse_document(file_path: str) -> str:
                     text, method = _parse_image(path)
                     
                 else:
-                    logger.warning(f"Unsupported file type: {suffix}. Returning empty string.")
-                    return ""
+                    raise FileTypeError(f"Unsupported file type: {suffix}")
                 
+            except FileTypeError:
+                raise
+            except EncryptedFileError:
+                raise
             except Exception as e:
                 logger.warning(f"Advanced parser failed ({suffix}): {e}, falling back to legacy parsers")
                 # Fall through to legacy parsers
@@ -123,15 +200,25 @@ def parse_document(file_path: str) -> str:
             elif suffix in [".txt"]:
                 text, method = _parse_txt(path)
             else:
-                logger.warning(f"Unsupported file type: {suffix}. Returning empty string.")
-                return ""
+                raise FileTypeError(f"Unsupported file type: {suffix}")
+        
+        # Validation 5: Check extracted content
+        if not text or len(text.strip()) < MIN_TEXT_LENGTH:
+            raise EmptyContentError(
+                f"Could not extract meaningful text from document. "
+                f"Extracted only {len(text.strip())} characters (minimum: {MIN_TEXT_LENGTH}). "
+                f"The file may be empty, corrupted, or consist only of images/scans."
+            )
             
-        logger.info(f"Extracted {len(text)} chars using {method} from {file_path}")
+        logger.info(f"✅ Successfully extracted {len(text)} chars using {method} from {file_path}")
         return text
 
-    except Exception as e:
-        logger.error(f"Error parsing document {file_path}: {e}")
+    except (FileNotFoundError, FileSizeError, FileTypeError, EncryptedFileError, EmptyContentError):
+        # Re-raise our custom exceptions as-is
         raise
+    except Exception as e:
+        logger.error(f"Unexpected error parsing document {file_path}: {e}", exc_info=True)
+        raise DocumentParsingError(f"Failed to parse document: {str(e)}") from e
 
 
 def _parse_txt(path: Path) -> tuple[str, str]:

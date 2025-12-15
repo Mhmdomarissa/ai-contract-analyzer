@@ -1,0 +1,276 @@
+{
+  "document": "/app/uploads/test contract.docx",
+  "text_length": 69934,
+  "advanced_extractor": {
+    "time": 0.16958951950073242,
+    "clauses": 86,
+    "coverage": 93.71550318872079,
+    "clauses_data": [
+      {
+        "clause_number": "Gap",
+        "heading": "Unstructured Content",
+        "text": "Master Services Agreement for the Provision of Technology Resources\t\n\nParties: DP World FZE & Alpha Data Processing Services\n\nDecember 2022",
+        "start_char": 0,
+        "end_char": 139,
+        "confidence": 0.3,
+        "metadata": {
+          "type": "gap_filler"
+        }
+      },
+      {
+        "clause_number": "AGREEMENT",
+        "heading": "AGREEMENT",
+        "text": "AGREEMENT\n\nThis Agreements is made BETWEEN\n\nDP WORLD fze, whose Head Office is located at P.O. Box: 17000, JAFZA 17, Jebel Ali Freezone, Dubai, UAE, hereinafter (\u201cTHE CLIENT\u201d); \n\nAND\n\nALPHA DATA PROCESSING SERVICES whose registered address is Mazaya Business Avenue, BBI Tower, 35th Floor Jumeirah Lake Towers, DUBAI, UAE, ZIP/Postal Code- 8829\n\nhereinafter referred to (The \u201cAgency \u201d);\n\nWHEREAS THE CLIENT has the requirement of professional Technology resources on various disciplines on an interim basis to work either on site or offshore \n\nWHEREAS the Agency is a prequalified resource provider with the CLIENT and confirmed with the CLIENT that they shall provide the qualified and experienced Information Technology resources to work for the CLIENT on short term or long term for temporary basis as and when required in accordance with the provisions of this Agreement.\n\nNOW, THEREFORE, in consideration of the mutual covenants set forth herein and intending to be legally bound, the Parties hereto agree as follows:",
+        "start_char": 139,
+        "end_char": 1163,
+        "confidence": 0.72,
+        "metadata": {
+          "format_type": "all_caps",
+          "strategies_agreed": 2,
+          "total_candidates": 2
+        }
+      },
+      {
+        "clause_number": "DEFINITIONS AND INTERPRETATION",
+        "heading": "DEFINITIONS AND INTERPRETATION",
+        "text": "DEFINITIONS AND INTERPRETATION\n\nIn this Agreement:\n\n\u201cAffiliate\u201d means, in relation to a party, a subsidiary or holding company of that party or any other subsidiary of that holding company;\n\n\u201cAgency\u2019s Authorised Representative\u201d means the person appointed by the Agency to act on its behalf in carrying out those duties described in this Agreement or any other person nominated by the Agency to act on its behalf and in each case notified in writing to the Client;\n\n\u201cAgreement\u201d means this agreement signed between the Parties;\n\n\u201cAnnual Leave\u201d  means unless otherwise stipulated by applicable laws, the Resource shall be\n\nentitled to 22 working days\u2019 leave per year of service to be calculated on a pro-rated basis where\n\nthe Resource commence/leave the Engagement part way through the annual leave year; \n\n\u201cApplicant\u201d means the qualified and experienced Information Technology candidate introduced by the Agency to THE CLIENT for any engagement;\n\n\u201cBase Location\u201d means the location where the Resource is stationed to provide the Services;\n\n\u201cClient\u2019s Authorised Representative\u201d means the person appointed by the Client to act on its behalf  in carrying out those duties described in this Agreement or any other person nominated by the Client to act on its behalf and in each case notified in writing to the Agency;\n\n\u201cConfidential Information\u201d means all information of a commercial proprietary or technical nature disclosed whether in writing verbally or by any other means and whether directly or indirectly by one party to the other whether before or after the date of this Agreement including, but not limited to:\n\nthe business, affairs, customers, clients, suppliers, or plans, intentions, or market opportunities of the disclosing party (or of any member of the group of companies to which the disclosing party belongs);\n\nthe operations, processes, product information, know-how, designs, trade secrets or software of the disclosing party (or of any member of the group of companies to which the disclosing party belongs); and\n\nthis Agreement and any information developed by the parties in the course of carrying out this Agreement.\n\n\u201cContractual Documentation\u201d means all documentation and other information agreed to be delivered pursuant to this Agreement including software records, reports, documents, papers, relevant computer data and all other technical business and similar information originated by or on behalf of the Agency pursuant to this Agreement;\n\n\u201cEffective Date\u201d means December 01, 2022 \n\n\u201cEngagement\u201d means the Client\u2019s confirmation or acceptance of the Applicant on interim basis to be utilised either onsite or offshore, whether under a contract of service or for services through the Agency to be confirmed through a PO ;\n\n\u201cFee\u201d means the daily or monthly price to be paid in AED or USD by THE CLIENT to the Agency for the performance of the Services of the selected Resource within the agreed fee structure attached as Appendix 1 (Rate Card) of this Agreement . Proposed fees are to be detailed by the Agencies as per requirement by the Client in a proposal format as and when required by the Client. This shall include, basic salary, allowances for accommodation, utility, transportation, or any other allowances to be mandatorily paid to the Resources by the Agency as per the applicable laws \n\n\u201cFunctional Representative\u201d means the person appointed by the Client and/or Agency to act on its behalf respectively  in carrying out day to day affairs of the engagement such as interview, invoicing, onboarding and other relevant requirements to ensure smooth business process  \n\n\u201cIndustry Standards\u201d means the rules and regulations including code of practice in force from time to time relating to the Services to be provided under this Agreement;\n\n\u201cInterim\u201d means period of temporary or termed contract work;\n\n\u201cIntroduction\u201d means i) THE CLIENT\u2019s interview of an Applicant in person or by telephone, following THE CLIENT\u2019s instruction to the Agency to search for an Applicant; or ii) the passing to THE CLIENT of a curriculum vitae or information which identifies the Applicant; and in both cases leads to an Engagement of that Applicant if accepted by the Client ;\n\n\u201cKey Performance Indicators (KPI)\u201d means quantifiable measurements, found in Appendix 4, that reflect the critical success factors of the Agency and THE CLIENT; \n\n\u201cOffshore Resource\u201d means the Resources deployed by the Agency at Agency location or any other location to be agreed between Resource, Agency and the Client  \n\n\u201cOnsite Resource\u201d means the Resources deployed at DP World Office locations globally\n\n\"Party\" means \u201cthe CLIENT\u201d and \u2018the Agency\u201d individually \n\n\"Parties\" mean THE CLIENT and the Agency collectively;\n\n\u201cPurchase Order or PO\u201d means the work order confirmation to be issued by Client to the Agency electronically on case to case basis confirming the Engagement of any Applicant\n\n\"Records\" means such accounts and records maintained by the Agency of all costs and fees related to the Engagement under this Agreement and as are reasonably necessary for the purpose of enabling the Client to conduct an audit of that expenditure \n\n\u201cResource\u201d means the qualified and experienced Information Technology resource person introduced by the Agency to THE CLIENT for any engagement and selected by the Client.\n\n\u201cResource Work Product\u201d means the result of any labour, whether physical or mental, by a Resource under an Engagement\n\n\u201cRFP\u201d means Request for Proposal to be issued by CLIENT time to time for the requirement of Professional Resources on interim basis through any manner decided by the CLIENT.\n\n\u201cServices\u201d means the scope of work defined in clause 2 here below  and any agreed variation thereto. It does not refer to the actual work undertaken by the Resource through an Engagement under the supervision of THE CLIENT;\n\n\u201cSick Leave\u201d means maximum number of 15 working days in a year a Resource is entitled to be absent on medical grounds with submission of required medical reports  \n\n\u201cWorking Day\u201d means any day excluding weekly days off and public holidays or as otherwise agreed between the Parties.",
+        "start_char": 1163,
+        "end_char": 7281,
+        "confidence": 0.8450000000000001,
+        "metadata": {
+          "keyword": "DEFINITIONS AND INTERPRETATION",
+          "match_type": "exact",
+          "strategies_agreed": 3,
+          "total_candidates": 4
+        }
+      },
+      {
+        "clause_number": "2.1",
+        "heading": "The Agency will, on the request of the Client:",
+        "text": "2.1 \tThe Agency will, on the request of the Client:\n\nAAs and when required by the Client, the Agency shall provide THE CLIENT with consistently high-quality Applicants with the correct skills set, experience and aptitude to meet THE CLIENT\u2019s requirements in the most cost effective and professional manner.  \n\nsubmit the curriculum vitaes to the Client by lodging them in the required form requested by the Client;\n\nassist the Client in scheduling interviews with the Applicant;\n\nundertake reference checks of the Applicant; \n\nprovide various information to the Applicant on behalf of the Client for example, details of benefits, remuneration and other information an Engagement; and\n\nprovide all additional assistance to the Client as required in the onboarding of the Applicant for an Engagement.\n\nThe Agency shall conduct reference checks and assessments as and when requested by THE CLIENT.",
+        "start_char": 7322,
+        "end_char": 8219,
+        "confidence": 0.9974999999999999,
+        "metadata": {
+          "level": 2,
+          "strategies_agreed": 4,
+          "total_candidates": 4
+        }
+      },
+      {
+        "clause_number": "2.2",
+        "heading": "The Agency shall perform the Services in accordance with the terms and conditions of this Agreement ",
+        "text": "2.2   \tThe Agency shall perform the Services in accordance with the terms and conditions of this Agreement and the Appendices or any other Client issued authorisation or agreed by both parties.",
+        "start_char": 8219,
+        "end_char": 8414,
+        "confidence": 0.9899999999999999,
+        "metadata": {
+          "level": 2,
+          "strategies_agreed": 2,
+          "total_candidates": 2
+        }
+      },
+      {
+        "clause_number": "14",
+        "heading": "The Agency acknowledges and agrees that any existing agreements (which include previously agreed cha",
+        "text": "Clause 14.\n\nThe Agency acknowledges and agrees that any existing agreements (which include previously agreed charge structures) related to the services specified in this Agreement between the Client and Agency entered into prior to this Agreement shall be deemed null and void. This Agreement shall be the sole Agreement between the Client and the Agency for the provision of any Technology resource augmentation related services.",
+        "start_char": 8608,
+        "end_char": 9038,
+        "confidence": 0.8800000000000001,
+        "metadata": {
+          "pattern_type": "clause",
+          "strategies_agreed": 1,
+          "total_candidates": 1
+        }
+      },
+      {
+        "clause_number": "4.1",
+        "heading": "The Agency shall charge the Client and the Client shall pay the Fees for the services provided by th",
+        "text": "4.1\tThe Agency shall charge the Client and the Client shall pay the Fees for the services provided by the Resource through an Engagement within the Rate Card  as specified in Appendix 1. In the event of any Resource title and cost is not specified in Appendix 1, then the Agency shall not provide any Proposal unless such title and cost is incorporated in this Agreement through a change control or contract amendment. All individual Resource Engagement Fee shall be within the Rates agreed for each roles/titles",
+        "start_char": 9055,
+        "end_char": 9569,
+        "confidence": 0.9974999999999999,
+        "metadata": {
+          "level": 2,
+          "strategies_agreed": 4,
+          "total_candidates": 4
+        }
+      },
+      {
+        "clause_number": "4.2",
+        "heading": "The Fee shall not increase from the Rates specified in the Rate Card, irrespective of the qualificat",
+        "text": "4.2 \tThe Fee shall not increase from the Rates specified in the Rate Card, irrespective of the qualification, experience and skill of the Applicants. The final and mutually agreed rates (within the rates specified in the Rate Card) will be specified in the PO for each individual Resource engagement.",
+        "start_char": 9569,
+        "end_char": 9871,
+        "confidence": 0.9899999999999999,
+        "metadata": {
+          "level": 2,
+          "strategies_agreed": 2,
+          "total_candidates": 2
+        }
+      },
+      {
+        "clause_number": "4.3",
+        "heading": "The Fee is exclusive of all taxes. Any deductions for tax, government charges, VAT are borne by the ",
+        "text": "4.3\tThe Fee is exclusive of all taxes. Any deductions for tax, government charges, VAT are borne by the Client. However, banking fees and exchange rate variations etc... shall be borne by the Agency",
+        "start_char": 9871,
+        "end_char": 10072,
+        "confidence": 0.9899999999999999,
+        "metadata": {
+          "level": 2,
+          "strategies_agreed": 2,
+          "total_candidates": 2
+        }
+      },
+      {
+        "clause_number": "4.4",
+        "heading": "Agency is not entitled for any Fees for any Introduction of the Applicant without resulting in an En",
+        "text": "4.4\tAgency is not entitled for any Fees for any Introduction of the Applicant without resulting in an Engagement.",
+        "start_char": 10072,
+        "end_char": 10187,
+        "confidence": 0.9899999999999999,
+        "metadata": {
+          "level": 2,
+          "strategies_agreed": 2,
+          "total_candidates": 2
+        }
+      }
+    ]
+  },
+  "enhanced_extractor": {
+    "time": 156.79560947418213,
+    "clauses": 95,
+    "coverage": 99.18923556496125,
+    "llm_clauses": 7,
+    "clauses_data": [
+      {
+        "clause_number": "Gap",
+        "heading": "Unstructured Content",
+        "text": "Master Services Agreement for the Provision of Technology Resources\t\n\nParties: DP World FZE & Alpha Data Processing Services\n\nDecember 2022",
+        "start_char": 0,
+        "end_char": 139,
+        "confidence": 0.3,
+        "metadata": {
+          "type": "gap_filler"
+        }
+      },
+      {
+        "clause_number": "AGREEMENT",
+        "heading": "AGREEMENT",
+        "text": "AGREEMENT\n\nThis Agreements is made BETWEEN\n\nDP WORLD fze, whose Head Office is located at P.O. Box: 17000, JAFZA 17, Jebel Ali Freezone, Dubai, UAE, hereinafter (\u201cTHE CLIENT\u201d); \n\nAND\n\nALPHA DATA PROCESSING SERVICES whose registered address is Mazaya Business Avenue, BBI Tower, 35th Floor Jumeirah Lake Towers, DUBAI, UAE, ZIP/Postal Code- 8829\n\nhereinafter referred to (The \u201cAgency \u201d);\n\nWHEREAS THE CLIENT has the requirement of professional Technology resources on various disciplines on an interim basis to work either on site or offshore \n\nWHEREAS the Agency is a prequalified resource provider with the CLIENT and confirmed with the CLIENT that they shall provide the qualified and experienced Information Technology resources to work for the CLIENT on short term or long term for temporary basis as and when required in accordance with the provisions of this Agreement.\n\nNOW, THEREFORE, in consideration of the mutual covenants set forth herein and intending to be legally bound, the Parties hereto agree as follows:",
+        "start_char": 139,
+        "end_char": 1163,
+        "confidence": 0.72,
+        "metadata": {
+          "format_type": "all_caps",
+          "strategies_agreed": 2,
+          "total_candidates": 2
+        }
+      },
+      {
+        "clause_number": "DEFINITIONS AND INTERPRETATION",
+        "heading": "DEFINITIONS AND INTERPRETATION",
+        "text": "DEFINITIONS AND INTERPRETATION\n\nIn this Agreement:\n\n\u201cAffiliate\u201d means, in relation to a party, a subsidiary or holding company of that party or any other subsidiary of that holding company;\n\n\u201cAgency\u2019s Authorised Representative\u201d means the person appointed by the Agency to act on its behalf in carrying out those duties described in this Agreement or any other person nominated by the Agency to act on its behalf and in each case notified in writing to the Client;\n\n\u201cAgreement\u201d means this agreement signed between the Parties;\n\n\u201cAnnual Leave\u201d  means unless otherwise stipulated by applicable laws, the Resource shall be\n\nentitled to 22 working days\u2019 leave per year of service to be calculated on a pro-rated basis where\n\nthe Resource commence/leave the Engagement part way through the annual leave year; \n\n\u201cApplicant\u201d means the qualified and experienced Information Technology candidate introduced by the Agency to THE CLIENT for any engagement;\n\n\u201cBase Location\u201d means the location where the Resource is stationed to provide the Services;\n\n\u201cClient\u2019s Authorised Representative\u201d means the person appointed by the Client to act on its behalf  in carrying out those duties described in this Agreement or any other person nominated by the Client to act on its behalf and in each case notified in writing to the Agency;\n\n\u201cConfidential Information\u201d means all information of a commercial proprietary or technical nature disclosed whether in writing verbally or by any other means and whether directly or indirectly by one party to the other whether before or after the date of this Agreement including, but not limited to:\n\nthe business, affairs, customers, clients, suppliers, or plans, intentions, or market opportunities of the disclosing party (or of any member of the group of companies to which the disclosing party belongs);\n\nthe operations, processes, product information, know-how, designs, trade secrets or software of the disclosing party (or of any member of the group of companies to which the disclosing party belongs); and\n\nthis Agreement and any information developed by the parties in the course of carrying out this Agreement.\n\n\u201cContractual Documentation\u201d means all documentation and other information agreed to be delivered pursuant to this Agreement including software records, reports, documents, papers, relevant computer data and all other technical business and similar information originated by or on behalf of the Agency pursuant to this Agreement;\n\n\u201cEffective Date\u201d means December 01, 2022 \n\n\u201cEngagement\u201d means the Client\u2019s confirmation or acceptance of the Applicant on interim basis to be utilised either onsite or offshore, whether under a contract of service or for services through the Agency to be confirmed through a PO ;\n\n\u201cFee\u201d means the daily or monthly price to be paid in AED or USD by THE CLIENT to the Agency for the performance of the Services of the selected Resource within the agreed fee structure attached as Appendix 1 (Rate Card) of this Agreement . Proposed fees are to be detailed by the Agencies as per requirement by the Client in a proposal format as and when required by the Client. This shall include, basic salary, allowances for accommodation, utility, transportation, or any other allowances to be mandatorily paid to the Resources by the Agency as per the applicable laws \n\n\u201cFunctional Representative\u201d means the person appointed by the Client and/or Agency to act on its behalf respectively  in carrying out day to day affairs of the engagement such as interview, invoicing, onboarding and other relevant requirements to ensure smooth business process  \n\n\u201cIndustry Standards\u201d means the rules and regulations including code of practice in force from time to time relating to the Services to be provided under this Agreement;\n\n\u201cInterim\u201d means period of temporary or termed contract work;\n\n\u201cIntroduction\u201d means i) THE CLIENT\u2019s interview of an Applicant in person or by telephone, following THE CLIENT\u2019s instruction to the Agency to search for an Applicant; or ii) the passing to THE CLIENT of a curriculum vitae or information which identifies the Applicant; and in both cases leads to an Engagement of that Applicant if accepted by the Client ;\n\n\u201cKey Performance Indicators (KPI)\u201d means quantifiable measurements, found in Appendix 4, that reflect the critical success factors of the Agency and THE CLIENT; \n\n\u201cOffshore Resource\u201d means the Resources deployed by the Agency at Agency location or any other location to be agreed between Resource, Agency and the Client  \n\n\u201cOnsite Resource\u201d means the Resources deployed at DP World Office locations globally\n\n\"Party\" means \u201cthe CLIENT\u201d and \u2018the Agency\u201d individually \n\n\"Parties\" mean THE CLIENT and the Agency collectively;\n\n\u201cPurchase Order or PO\u201d means the work order confirmation to be issued by Client to the Agency electronically on case to case basis confirming the Engagement of any Applicant\n\n\"Records\" means such accounts and records maintained by the Agency of all costs and fees related to the Engagement under this Agreement and as are reasonably necessary for the purpose of enabling the Client to conduct an audit of that expenditure \n\n\u201cResource\u201d means the qualified and experienced Information Technology resource person introduced by the Agency to THE CLIENT for any engagement and selected by the Client.\n\n\u201cResource Work Product\u201d means the result of any labour, whether physical or mental, by a Resource under an Engagement\n\n\u201cRFP\u201d means Request for Proposal to be issued by CLIENT time to time for the requirement of Professional Resources on interim basis through any manner decided by the CLIENT.\n\n\u201cServices\u201d means the scope of work defined in clause 2 here below  and any agreed variation thereto. It does not refer to the actual work undertaken by the Resource through an Engagement under the supervision of THE CLIENT;\n\n\u201cSick Leave\u201d means maximum number of 15 working days in a year a Resource is entitled to be absent on medical grounds with submission of required medical reports  \n\n\u201cWorking Day\u201d means any day excluding weekly days off and public holidays or as otherwise agreed between the Parties.",
+        "start_char": 1163,
+        "end_char": 7281,
+        "confidence": 0.8450000000000001,
+        "metadata": {
+          "keyword": "DEFINITIONS AND INTERPRETATION",
+          "match_type": "exact",
+          "strategies_agreed": 3,
+          "total_candidates": 4
+        }
+      },
+      {
+        "clause_number": "2.1",
+        "heading": "The Agency will, on the request of the Client:",
+        "text": "2.1 \tThe Agency will, on the request of the Client:\n\nAAs and when required by the Client, the Agency shall provide THE CLIENT with consistently high-quality Applicants with the correct skills set, experience and aptitude to meet THE CLIENT\u2019s requirements in the most cost effective and professional manner.  \n\nsubmit the curriculum vitaes to the Client by lodging them in the required form requested by the Client;\n\nassist the Client in scheduling interviews with the Applicant;\n\nundertake reference checks of the Applicant; \n\nprovide various information to the Applicant on behalf of the Client for example, details of benefits, remuneration and other information an Engagement; and\n\nprovide all additional assistance to the Client as required in the onboarding of the Applicant for an Engagement.\n\nThe Agency shall conduct reference checks and assessments as and when requested by THE CLIENT.",
+        "start_char": 7322,
+        "end_char": 8219,
+        "confidence": 0.9974999999999999,
+        "metadata": {
+          "level": 2,
+          "strategies_agreed": 4,
+          "total_candidates": 4
+        }
+      },
+      {
+        "clause_number": "2.2",
+        "heading": "The Agency shall perform the Services in accordance with the terms and conditions of this Agreement ",
+        "text": "2.2   \tThe Agency shall perform the Services in accordance with the terms and conditions of this Agreement and the Appendices or any other Client issued authorisation or agreed by both parties.",
+        "start_char": 8219,
+        "end_char": 8414,
+        "confidence": 0.9899999999999999,
+        "metadata": {
+          "level": 2,
+          "strategies_agreed": 2,
+          "total_candidates": 2
+        }
+      },
+      {
+        "clause_number": "TERM AND SOLE AGREEMENT",
+        "heading": "TERM AND SOLE AGREEMENT",
+        "text": "This Agreement shall commence from the Effective Date and shall continue in full force and valid for Three (3) years from thereon unless terminated in accordance with",
+        "start_char": 8441,
+        "end_char": 8607,
+        "confidence": 0.7,
+        "metadata": {
+          "type": "llm_gap_fill",
+          "source": "llm"
+        }
+      },
+      {
+        "clause_number": "14",
+        "heading": "The Agency acknowledges and agrees that any existing agreements (which include previously agreed cha",
+        "text": "Clause 14.\n\nThe Agency acknowledges and agrees that any existing agreements (which include previously agreed charge structures) related to the services specified in this Agreement between the Client and Agency entered into prior to this Agreement shall be deemed null and void. This Agreement shall be the sole Agreement between the Client and the Agency for the provision of any Technology resource augmentation related services.",
+        "start_char": 8608,
+        "end_char": 9038,
+        "confidence": 0.8800000000000001,
+        "metadata": {
+          "pattern_type": "clause",
+          "strategies_agreed": 1,
+          "total_candidates": 1
+        }
+      },
+      {
+        "clause_number": "4.1",
+        "heading": "The Agency shall charge the Client and the Client shall pay the Fees for the services provided by th",
+        "text": "4.1\tThe Agency shall charge the Client and the Client shall pay the Fees for the services provided by the Resource through an Engagement within the Rate Card  as specified in Appendix 1. In the event of any Resource title and cost is not specified in Appendix 1, then the Agency shall not provide any Proposal unless such title and cost is incorporated in this Agreement through a change control or contract amendment. All individual Resource Engagement Fee shall be within the Rates agreed for each roles/titles",
+        "start_char": 9055,
+        "end_char": 9569,
+        "confidence": 0.9974999999999999,
+        "metadata": {
+          "level": 2,
+          "strategies_agreed": 4,
+          "total_candidates": 4
+        }
+      },
+      {
+        "clause_number": "4.2",
+        "heading": "The Fee shall not increase from the Rates specified in the Rate Card, irrespective of the qualificat",
+        "text": "4.2 \tThe Fee shall not increase from the Rates specified in the Rate Card, irrespective of the qualification, experience and skill of the Applicants. The final and mutually agreed rates (within the rates specified in the Rate Card) will be specified in the PO for each individual Resource engagement.",
+        "start_char": 9569,
+        "end_char": 9871,
+        "confidence": 0.9899999999999999,
+        "metadata": {
+          "level": 2,
+          "strategies_agreed": 2,
+          "total_candidates": 2
+        }
+      },
+      {
+        "clause_number": "4.3",
+        "heading": "The Fee is exclusive of all taxes. Any deductions for tax, government charges, VAT are borne by the ",
+        "text": "4.3\tThe Fee is exclusive of all taxes. Any deductions for tax, government charges, VAT are borne by the Client. However, banking fees and exchange rate variations etc... shall be borne by the Agency",
+        "start_char": 9871,
+        "end_char": 10072,
+        "confidence": 0.9899999999999999,
+        "metadata": {
+          "level": 2,
+          "strategies_agreed": 2,
+          "total_candidates": 2
+        }
+      }
+    ]
+  }
+}
