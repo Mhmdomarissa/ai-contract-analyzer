@@ -595,6 +595,7 @@ class LLMService:
                     clauses = result.validated_clauses
                 except Exception as e:
                     logger.warning(f"LLM validation failed, using unvalidated clauses: {e}")
+                    pass
             
             logger.info(f"Final clause count: {len(clauses)}")
             return clauses
@@ -638,15 +639,64 @@ class LLMService:
         
         # Map clause_numbers back to UUIDs if we used simplified IDs
         if hasattr(self, '_clause_id_mapping') and self._clause_id_mapping:
+            logger.info(f"Mapping clause IDs using mapping: {self._clause_id_mapping}")
+            
+            def find_clause_id(clause_ref: str) -> str | None:
+                """Find clause UUID by exact match or parent clause for sub-clauses."""
+                clause_ref_str = str(clause_ref).strip()
+                
+                # Try exact match first
+                if clause_ref_str in self._clause_id_mapping:
+                    return self._clause_id_mapping[clause_ref_str]
+                
+                # Handle "Clause" prefix (e.g., "Clause2" -> "2")
+                if clause_ref_str.startswith("Clause") or clause_ref_str.startswith("clause"):
+                    # Remove "Clause" prefix and try again
+                    cleaned = clause_ref_str.replace("Clause", "").replace("clause", "").strip()
+                    if cleaned in self._clause_id_mapping:
+                        logger.info(f"Mapped '{clause_ref_str}' to '{cleaned}'")
+                        return self._clause_id_mapping[cleaned]
+                    # Also try with the cleaned version for sub-clauses
+                    clause_ref_str = cleaned
+                
+                # If it's a sub-clause (e.g., "2.6", "4.1"), try to find parent clause
+                if '.' in clause_ref_str:
+                    # Extract parent number (e.g., "2.6" -> "2", "4.1.2" -> "4")
+                    parent_parts = clause_ref_str.split('.')
+                    if len(parent_parts) >= 2:
+                        parent_number = parent_parts[0]
+                        if parent_number in self._clause_id_mapping:
+                            logger.info(f"Mapped sub-clause '{clause_ref}' to parent clause '{parent_number}'")
+                            return self._clause_id_mapping[parent_number]
+                
+                # Try case-insensitive match
+                for key, value in self._clause_id_mapping.items():
+                    if key.lower() == clause_ref_str.lower():
+                        logger.info(f"Mapped '{clause_ref}' to '{key}' (case-insensitive)")
+                        return value
+                
+                return None
+            
             for conflict in conflicts:
                 id1 = conflict.get("clause_id_1")
                 id2 = conflict.get("clause_id_2")
                 
+                logger.debug(f"Before mapping: clause_id_1={id1}, clause_id_2={id2}")
+                
                 # Map back to UUIDs
-                if id1 in self._clause_id_mapping:
-                    conflict["clause_id_1"] = self._clause_id_mapping[id1]
-                if id2 in self._clause_id_mapping:
-                    conflict["clause_id_2"] = self._clause_id_mapping[id2]
+                mapped_id1 = find_clause_id(str(id1))
+                if mapped_id1:
+                    conflict["clause_id_1"] = mapped_id1
+                    logger.debug(f"Mapped {id1} -> {mapped_id1}")
+                else:
+                    logger.warning(f"clause_id_1 '{id1}' not found in mapping")
+                    
+                mapped_id2 = find_clause_id(str(id2))
+                if mapped_id2:
+                    conflict["clause_id_2"] = mapped_id2
+                    logger.debug(f"Mapped {id2} -> {mapped_id2}")
+                else:
+                    logger.warning(f"clause_id_2 '{id2}' not found in mapping")
         
         logger.info(f"Found {len(conflicts)} potential conflicts")
         return conflicts
@@ -722,69 +772,6 @@ class LLMService:
         logger.info(f"Extracted {len(clauses)} raw clauses using structure-based parsing")
         return clauses
 
-    def _build_conflict_detection_prompt(self, clauses: List[dict]) -> str:
-        # We send a simplified version of clauses to save tokens
-        # Include clause_number as "id" for easier LLM reference (instead of UUID)
-        simplified_clauses: List[dict[str, Any]] = []
-        id_mapping = {}  # Map clause_number to UUID for later lookup
-        
-        for clause in clauses:
-            # Use clause_number as the ID (simpler for LLM to reference)
-            clause_ref = clause.get("clause_number") or clause.get("id")
-            id_mapping[clause_ref] = clause.get("id")
-            
-            payload: dict[str, Any] = {
-                "id": clause_ref,
-                "text": clause.get("text", ""),
-            }
-            if clause.get("clause_number"):
-                payload["clause_number"] = clause["clause_number"]
-            simplified_clauses.append(payload)
-
-        # Store mapping for later use
-        self._clause_id_mapping = id_mapping
-        
-        clauses_text = json.dumps(simplified_clauses, indent=2, ensure_ascii=False)
-        
-        # Build example with actual IDs from the input
-        example_id_1 = simplified_clauses[0]["id"] if len(simplified_clauses) > 0 else "Preamble"
-        example_id_2 = simplified_clauses[1]["id"] if len(simplified_clauses) > 1 else "AGREEMENT"
-        
-        return f"""Identify pairs of conflicting clauses from the contract clause list below.
-
-IMPORTANT: Two clauses conflict when they:
-1. Contain contradictory terms (one says X, another says NOT X)
-2. Have incompatible obligations (cannot both be fulfilled simultaneously)
-3. Create logically inconsistent provisions (violate basic logic or legal principles)
-4. Have mutually exclusive conditions or requirements
-
-ANALYZE ALL {len(simplified_clauses)} CLAUSES for conflicts with each other.
-
-INPUT CLAUSES:
-{clauses_text}
-
-REQUIRED OUTPUT FORMAT - You must return a JSON object with exactly this structure:
-{{
-  "conflicts": [
-    {{
-      "clause_id_1": "{example_id_1}",
-      "clause_id_2": "{example_id_2}",
-      "type": "LOGICAL"
-    }}
-  ]
-}}
-
-RULES:
-- clause_id_1 and clause_id_2 must be the EXACT "id" values from the INPUT CLAUSES above
-- You MUST copy the id values EXACTLY as they appear - do NOT make up or modify them
-- type must be either "LOGICAL" or "LEGAL"
-- Check EVERY clause against EVERY other clause
-- If no conflicts exist, return {{"conflicts": []}}
-- Do NOT return the input clauses
-- Do NOT add extra fields
-- CRITICAL: Use only the id values that appear in the INPUT CLAUSES list above
-
-Your JSON response:"""
 
     def _build_explanation_prompt(self, conflicts: List[dict], clauses: List[dict]) -> str:
         # Map IDs to text/metadata for context
@@ -891,28 +878,178 @@ Your JSON response:"""
         return max_size
 
     def _parse_llm_response(self, response_text: str) -> dict[str, Any]:
+        """
+        Parse LLM response, handling various formats including extra text before/after JSON.
+        """
         try:
             cleaned_text = response_text.strip()
+            
+            # Remove markdown code blocks
             if cleaned_text.startswith("```json"):
                 cleaned_text = cleaned_text[7:]
+            elif cleaned_text.startswith("```"):
+                cleaned_text = cleaned_text[3:]
             if cleaned_text.endswith("```"):
                 cleaned_text = cleaned_text[:-3]
-            parsed = json.loads(cleaned_text)
-            # Some LLM endpoints return a JSON wrapper where the useful payload is under
-            # a "content" field (or the whole payload is a JSON string). Attempt to
-            # extract and parse that if present.
-            if isinstance(parsed, dict) and "content" in parsed and isinstance(parsed["content"], str):
-                inner = parsed["content"].strip()
-                if inner.startswith("{") or inner.startswith("["):
-                    try:
-                        return json.loads(inner)
-                    except json.JSONDecodeError:
-                        # If inner isn't valid JSON, fall back to the outer parsed dict
-                        return parsed
-            return parsed
-        except json.JSONDecodeError as e:
+            
+            cleaned_text = cleaned_text.strip()
+            
+            # Try to find the first valid JSON object
+            # Sometimes LLM adds extra text before or after JSON
+            first_brace = cleaned_text.find('{')
+            if first_brace != -1:
+                # Try to find the matching closing brace
+                brace_count = 0
+                end_pos = first_brace
+                for i, char in enumerate(cleaned_text[first_brace:], start=first_brace):
+                    if char == '{':
+                        brace_count += 1
+                    elif char == '}':
+                        brace_count -= 1
+                        if brace_count == 0:
+                            end_pos = i + 1
+                            break
+                
+                # Extract just the JSON part
+                json_text = cleaned_text[first_brace:end_pos]
+                try:
+                    parsed = json.loads(json_text)
+                    # Some LLM endpoints return a JSON wrapper where the useful payload is under
+                    # a "content" field (or the whole payload is a JSON string). Attempt to
+                    # extract and parse that if present.
+                    if isinstance(parsed, dict) and "content" in parsed and isinstance(parsed["content"], str):
+                        inner = parsed["content"].strip()
+                        if inner.startswith("{") or inner.startswith("["):
+                            try:
+                                return json.loads(inner)
+                            except json.JSONDecodeError:
+                                # If inner isn't valid JSON, fall back to the outer parsed dict
+                                return parsed
+                    return parsed
+                except json.JSONDecodeError:
+                    # If that fails, try parsing the whole thing
+                    pass
+            
+            # Fallback: try parsing the whole cleaned text
+            try:
+                parsed = json.loads(cleaned_text)
+                if isinstance(parsed, dict) and "content" in parsed and isinstance(parsed["content"], str):
+                    inner = parsed["content"].strip()
+                    if inner.startswith("{") or inner.startswith("["):
+                        try:
+                            return json.loads(inner)
+                        except json.JSONDecodeError:
+                            return parsed
+                return parsed
+            except json.JSONDecodeError:
+                pass
+                
+        except Exception as e:
             logger.error(f"Failed to parse LLM response: {e}")
-            return {}
+            logger.debug(f"Response text (first 500 chars): {response_text[:500]}")
+        
+        # If all parsing attempts fail, return empty dict
+        logger.warning("Could not parse LLM response as JSON, returning empty result")
+        return {}
+
+
+    def _build_conflict_detection_prompt(self, clauses: List[dict]) -> str:
+        """
+        Build comprehensive contextual conflict detection prompt.
+        The LLM should understand the entire contract context (parties, contract type, jurisdiction, etc.)
+        and then identify conflicts between clauses.
+        """
+        # We send full clause text for complete contextual understanding
+        simplified_clauses: List[dict[str, Any]] = []
+        id_mapping = {}
+        
+        for clause in clauses:
+            clause_ref = clause.get("clause_number") or clause.get("id")
+            id_mapping[clause_ref] = clause.get("id")
+            
+            payload: dict[str, Any] = {
+                "id": clause_ref,
+                "text": clause.get("text", ""),  # Full text - never truncated
+            }
+            if clause.get("clause_number"):
+                payload["clause_number"] = clause["clause_number"]
+            if clause.get("heading"):
+                payload["heading"] = clause["heading"]
+            simplified_clauses.append(payload)
+
+        self._clause_id_mapping = id_mapping
+        
+        clauses_text = json.dumps(simplified_clauses, indent=2, ensure_ascii=False)
+        
+        example_id_1 = simplified_clauses[0]["id"] if len(simplified_clauses) > 0 else "1"
+        example_id_2 = simplified_clauses[1]["id"] if len(simplified_clauses) > 1 else "2"
+        
+        return f"""You are an expert legal document analyst. Your task is to analyze the ENTIRE contract contextually and identify REAL conflicts between clauses.
+
+STEP 1: UNDERSTAND THE CONTRACT CONTEXT
+First, read through ALL {len(simplified_clauses)} clauses to understand:
+- What type of contract this is (employment, service, sales, etc.)
+- Who the parties are (names, roles, relationships)
+- The jurisdiction and governing law
+- Key terms, dates, locations, and financial arrangements
+- The overall structure and purpose of the agreement
+
+STEP 2: IDENTIFY CONFLICTS BETWEEN CLAUSES
+After understanding the full context, identify conflicts where two clauses:
+1. Contain contradictory terms (one says X, another says NOT X or contradicts X)
+2. Have incompatible obligations (cannot both be fulfilled simultaneously)
+3. Create logically inconsistent provisions (violate basic logic or legal principles)
+4. Have mutually exclusive conditions or requirements
+5. Specify different values for the same thing (dates, amounts, locations, jurisdictions, etc.)
+
+TYPES OF CONFLICTS TO DETECT:
+- Geographic/Jurisdictional: One clause says "UAE" and another says "UK" or "USA" for the same context
+- Party identification: Inconsistent party names or roles that create confusion
+- Date/Time: One clause says "30 days" and another says "60 days" for the same deadline
+- Financial: One clause says "Payment due in 30 days" and another says "Payment due in 60 days" for the same payment
+- Legal requirements: One clause requires X and another prohibits X
+- Term definitions: One clause defines a term one way and another uses it differently
+- Obligations: One clause requires Party A to do X, another requires Party B to do X (when they conflict)
+
+WHAT IS NOT A CONFLICT:
+- Document titles, headers, preambles, or structural elements
+- Clauses with "Gap" as clause number (usually structural, not substantive)
+- Complementary clauses or cross-references that clarify each other
+- Different clauses covering different topics (not contradictions)
+- Table/KPI content redundancies (often intentional)
+- Stylistic variations in wording (unless they change meaning)
+- Clauses that build upon each other or provide additional detail
+
+INPUT CLAUSES (ALL {len(simplified_clauses)} clauses - read them all to understand the full context):
+{clauses_text}
+
+REQUIRED OUTPUT FORMAT - Return a JSON object with exactly this structure:
+{{
+  "conflicts": [
+    {{
+      "clause_id_1": "{example_id_1}",
+      "clause_id_2": "{example_id_2}",
+      "type": "LOGICAL" | "LEGAL" | "TERMINOLOGICAL" | "GEOGRAPHIC" | "TEMPORAL" | "FINANCIAL",
+      "description": "Clear, detailed description of the conflict. Be specific: 'Clause X states [specific text/requirement] but Clause Y states [contradictory text/requirement]. This creates a conflict because [explanation].'",
+      "severity": "HIGH" | "MEDIUM" | "LOW",
+      "suggested_resolution": "Specific, actionable recommendation to resolve the conflict. Example: 'Standardize jurisdiction to UAE across all clauses' or 'Clarify that Clause X applies to [context A] and Clause Y applies to [context B]' or 'Remove the conflicting provision in Clause X and keep Clause Y'"
+    }}
+  ]
+}}
+
+RULES:
+- clause_id_1 and clause_id_2 must be the EXACT "id" values from the INPUT CLAUSES above
+- You MUST copy the id values EXACTLY as they appear - do NOT make up or modify them
+- type must be one of: "LOGICAL", "LEGAL", "TERMINOLOGICAL", "GEOGRAPHIC", "TEMPORAL", "FINANCIAL"
+- description must clearly explain WHAT the conflict is and WHY it's a conflict
+- severity: "HIGH" (prevents contract execution), "MEDIUM" (creates legal risk), "LOW" (minor inconsistency)
+- suggested_resolution must be specific and actionable
+- Check EVERY clause against EVERY other clause systematically
+- If no conflicts exist, return {{"conflicts": []}}
+- Be EXTREMELY conservative - only flag conflicts you are 95%+ confident are real contradictions
+- CRITICAL: Use only the id values that appear in the INPUT CLAUSES list above
+
+Your JSON response:"""
 
 
 

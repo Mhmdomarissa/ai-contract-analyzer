@@ -5,10 +5,15 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-# Install system dependencies for OCR and PDF processing
+# Install system dependencies for OCR, PDF processing, table extraction, and advanced extractors
 RUN apt-get update && apt-get install -y \
     tesseract-ocr \
     poppler-utils \
+    ghostscript \
+    python3-tk \
+    libmagic1 \
+    libgl1 \
+    libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml .

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -26,7 +27,11 @@ class ClauseRead(BaseModel):
     language: str | None
     clause_group_id: UUID | None
     text: str
+    arabic_text: str | None = None
+    is_bilingual: bool = False
     number_normalized: str | None
+    analysis_results: dict | None = None
+    analysis_status: str | None = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

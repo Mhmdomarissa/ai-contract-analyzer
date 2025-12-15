@@ -1,40 +1,76 @@
 """
 Advanced PDF Parser with OCR, layout detection, and table recognition
-Adapted from RAGFlow PdfParser with vision capabilities
+Uses PyMuPDF (fitz) as primary parser for speed and accuracy
+Falls back to pdfplumber for advanced table extraction if needed
 """
 import logging
 import re
 from io import BytesIO
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 
-import pdfplumber
+try:
+    import fitz  # PyMuPDF
+    PYMUPDF_AVAILABLE = True
+except ImportError:
+    PYMUPDF_AVAILABLE = False
+    logging.warning("PyMuPDF not available. Install with: pip install pymupdf")
+
+try:
+    import pdfplumber
+    PDFPLUMBER_AVAILABLE = True
+except ImportError:
+    PDFPLUMBER_AVAILABLE = False
+    logging.warning("pdfplumber not available for table extraction fallback")
 
 from .utils import num_tokens_from_string
+
+# Import table extractor
+try:
+    from app.services.table_extractor import TableExtractor
+    TABLE_EXTRACTOR_AVAILABLE = True
+except ImportError:
+    TABLE_EXTRACTOR_AVAILABLE = False
+    logging.warning("Table extractor not available")
 
 logger = logging.getLogger(__name__)
 
 
 class AdvancedPdfParser:
     """
-    Advanced PDF parser with OCR fallback, layout detection, and table extraction.
+    Advanced PDF parser using PyMuPDF (fitz) for fast, accurate text extraction.
+    Falls back to pdfplumber for complex table extraction if needed.
     """
     
-    def __init__(self, use_ocr: bool = True, layout_recognition: bool = True):
+    def __init__(self, use_ocr: bool = True, layout_recognition: bool = True, 
+                 use_pdfplumber_for_tables: bool = False, extract_tables: bool = True):
         """
         Initialize PDF parser.
         
         Args:
             use_ocr: Enable OCR for scanned PDFs
             layout_recognition: Enable layout analysis
+            use_pdfplumber_for_tables: Use pdfplumber for table extraction (slower but more accurate)
+            extract_tables: Enable advanced table extraction with structured output
         """
         self.use_ocr = use_ocr
         self.layout_recognition = layout_recognition
-        self.pdf = None
+        self.use_pdfplumber_for_tables = use_pdfplumber_for_tables
+        self.extract_tables = extract_tables and TABLE_EXTRACTOR_AVAILABLE
+        self.doc = None
+        self.pdfplumber_pdf = None
+        self.extracted_tables = []  # Store extracted tables
+        
+        # Initialize table extractor if available
+        if self.extract_tables:
+            self.table_extractor = TableExtractor(prefer_camelot=True)
+        else:
+            self.table_extractor = None
     
     def parse(self, file_path: str = None, binary: bytes = None,
               from_page: int = 0, to_page: int = 100000000) -> str:
         """
-        Parse PDF and return full text.
+        Parse PDF and return full text using PyMuPDF (fitz).
+        Also extracts tables if extract_tables is enabled.
         
         Args:
             file_path: Path to PDF file
@@ -43,82 +79,141 @@ class AdvancedPdfParser:
             to_page: End page
             
         Returns:
-            Full extracted text
+            Full extracted text (includes formatted table text)
         """
-        sections = self.parse_with_layout(file_path, binary, from_page, to_page)
+        # Extract tables first if enabled
+        if self.extract_tables and file_path:
+            try:
+                self.extracted_tables = self.table_extractor.extract_tables_from_pdf(
+                    file_path=file_path,
+                    page_num=None  # Extract from all pages
+                )
+                logger.info(f"Extracted {len(self.extracted_tables)} tables from PDF")
+            except Exception as e:
+                logger.warning(f"Table extraction failed: {e}, continuing with text extraction")
+                self.extracted_tables = []
         
-        # Combine all text blocks
-        text_parts = []
-        for section in sections:
-            if 'text' in section and section['text'].strip():
-                text_parts.append(section['text'])
+        # COMMENTED OUT: PyMuPDF - using pdfplumber instead
+        # if not PYMUPDF_AVAILABLE:
+        #     logger.warning("PyMuPDF not available, falling back to pdfplumber")
+        #     return self._parse_with_pdfplumber(file_path, binary, from_page, to_page)
+        # 
+        # try:
+        #     # Use PyMuPDF for fast text extraction
+        #     if binary:
+        #         self.doc = fitz.open(stream=binary, filetype="pdf")
+        #     elif file_path:
+        #         self.doc = fitz.open(file_path)
+        #     else:
+        #         raise ValueError("Either file_path or binary must be provided")
+        #     
+        #     text_parts = []
+        #     total_pages = len(self.doc)
+        #     
+        #     for page_num in range(from_page, min(to_page, total_pages)):
+        #         page = self.doc[page_num]
+        #         
+        #         # Extract text with layout preservation
+        #         page_text = page.get_text()
+        #         
+        #         if page_text and page_text.strip():
+        #             text_parts.append(page_text)
+        #         elif self.use_ocr:
+        #             # Try OCR for scanned pages
+        #             logger.info(f"Page {page_num + 1} appears to be scanned, attempting OCR")
+        #             ocr_text = self._ocr_fallback_pymupdf(page)
+        #             if ocr_text:
+        #                 text_parts.append(ocr_text)
+        #     
+        #     full_text = "\n\n".join(text_parts)
+        #     
+        #     # Note: We don't append tables to text here because:
+        #     # 1. Tables are already in the document text naturally
+        #     # 2. We extract them separately for structured linking via metadata
+        #     # 3. Appending would cause duplication
+        #     
+        #     return full_text
+        # 
+        # except Exception as e:
+        #     logger.error(f"PyMuPDF parsing failed: {e}, falling back to pdfplumber")
+        #     return self._parse_with_pdfplumber(file_path, binary, from_page, to_page)
+        # 
+        # finally:
+        #     if self.doc:
+        #         self.doc.close()
+        #         self.doc = None
         
-        return "\n\n".join(text_parts)
+        # Force pdfplumber usage
+        logger.info("Using pdfplumber for PDF parsing (PyMuPDF commented out)")
+        return self._parse_with_pdfplumber(file_path, binary, from_page, to_page)
+    
+    def get_extracted_tables(self) -> List[Dict[str, Any]]:
+        """
+        Get extracted tables (structured format).
+        
+        Returns:
+            List of structured table dictionaries
+        """
+        return self.extracted_tables
     
     def parse_with_layout(self, file_path: str = None, binary: bytes = None,
                           from_page: int = 0, to_page: int = 100000000) -> List[Dict[str, Any]]:
         """
-        Parse PDF with layout information.
+        Parse PDF with layout information using PyMuPDF.
         
         Returns:
             List of sections with layout metadata
         """
-        # Open PDF
-        if binary:
-            self.pdf = pdfplumber.open(BytesIO(binary))
-        elif file_path:
-            self.pdf = pdfplumber.open(file_path)
-        else:
-            raise ValueError("Either file_path or binary must be provided")
-        
-        sections = []
+        if not PYMUPDF_AVAILABLE:
+            logger.warning("PyMuPDF not available, falling back to pdfplumber")
+            return self._parse_with_layout_pdfplumber(file_path, binary, from_page, to_page)
         
         try:
+            # Open PDF with PyMuPDF
+            if binary:
+                    self.doc = fitz.open(stream=binary, filetype="pdf")
+            elif file_path:
+                    self.doc = fitz.open(file_path)
+            else:
+                raise ValueError("Either file_path or binary must be provided")
+            
+            sections = []
+            total_pages = len(self.doc)
+            
             # Process each page
-            for page_num in range(from_page, min(to_page, len(self.pdf.pages))):
-                page = self.pdf.pages[page_num]
+            for page_num in range(from_page, min(to_page, total_pages)):
+                page = self.doc[page_num]
                 
                 # Extract text with layout
-                page_sections = self._extract_page_with_layout(page, page_num)
+                page_sections = self._extract_page_with_layout_pymupdf(page, page_num)
                 sections.extend(page_sections)
+            
+            return sections
+        
+        except Exception as e:
+            logger.error(f"PyMuPDF layout parsing failed: {e}, falling back to pdfplumber")
+            return self._parse_with_layout_pdfplumber(file_path, binary, from_page, to_page)
         
         finally:
-            if self.pdf:
-                self.pdf.close()
-        
-        return sections
+            if self.doc:
+                self.doc.close()
+                self.doc = None
     
-    def _extract_page_with_layout(self, page, page_num: int) -> List[Dict[str, Any]]:
+    def _extract_page_with_layout_pymupdf(self, page, page_num: int) -> List[Dict[str, Any]]:
         """
-        Extract content from a single page with layout analysis.
+        Extract content from a single page using PyMuPDF.
         
         Args:
-            page: pdfplumber Page object
-            page_num: Page number
+            page: PyMuPDF Page object
+            page_num: Page number (0-indexed)
             
         Returns:
             List of sections from this page
         """
         sections = []
         
-        # Extract tables first
-        tables = page.extract_tables()
-        table_bboxes = []
-        
-        for table in tables:
-            if table:
-                # Format table
-                formatted_table = self._format_table(table)
-                if formatted_table:
-                    sections.append({
-                        'type': 'table',
-                        'text': formatted_table,
-                        'page': page_num,
-                        'bbox': None  # Could calculate from table position
-                    })
-        
-        # Extract text outside tables
-        text_content = page.extract_text()
+        # Extract text with layout preservation
+        text_content = page.get_text()
         
         if text_content and text_content.strip():
             # Split into paragraphs
@@ -133,10 +228,20 @@ class AdvancedPdfParser:
                         'bbox': None
                     })
         
+        # Use pdfplumber for table extraction if requested
+        if self.use_pdfplumber_for_tables and PDFPLUMBER_AVAILABLE:
+            try:
+                # Get tables using pdfplumber for this specific page
+                # Note: This requires opening the PDF again with pdfplumber
+                table_sections = self._extract_tables_pdfplumber_for_page(page_num)
+                sections.extend(table_sections)
+            except Exception as e:
+                logger.warning(f"pdfplumber table extraction failed for page {page_num}: {e}")
+        
         # OCR fallback for scanned pages
-        elif self.use_ocr and not text_content:
-            logger.info(f"Page {page_num} appears to be scanned, attempting OCR")
-            ocr_text = self._ocr_fallback(page)
+        if not text_content and self.use_ocr:
+            logger.info(f"Page {page_num + 1} appears to be scanned, attempting OCR")
+            ocr_text = self._ocr_fallback_pymupdf(page)
             if ocr_text:
                 sections.append({
                     'type': 'text_ocr',
@@ -145,6 +250,111 @@ class AdvancedPdfParser:
                     'bbox': None
                 })
         
+        return sections
+    
+    def _parse_with_pdfplumber(self, file_path: str = None, binary: bytes = None,
+                               from_page: int = 0, to_page: int = 100000000) -> str:
+        """Fallback to pdfplumber for text extraction."""
+        if not PDFPLUMBER_AVAILABLE:
+            raise ImportError("Neither PyMuPDF nor pdfplumber is available")
+        
+        try:
+            if binary:
+                self.pdfplumber_pdf = pdfplumber.open(BytesIO(binary))
+            elif file_path:
+                self.pdfplumber_pdf = pdfplumber.open(file_path)
+            else:
+                raise ValueError("Either file_path or binary must be provided")
+            
+            text_parts = []
+            for page_num in range(from_page, min(to_page, len(self.pdfplumber_pdf.pages))):
+                page = self.pdfplumber_pdf.pages[page_num]
+                page_text = page.extract_text()
+                if page_text:
+                    text_parts.append(page_text)
+            
+            return "\n\n".join(text_parts)
+        
+        finally:
+            if self.pdfplumber_pdf:
+                self.pdfplumber_pdf.close()
+                self.pdfplumber_pdf = None
+    
+    def _parse_with_layout_pdfplumber(self, file_path: str = None, binary: bytes = None,
+                                       from_page: int = 0, to_page: int = 100000000) -> List[Dict[str, Any]]:
+        """Fallback to pdfplumber for layout extraction."""
+        if not PDFPLUMBER_AVAILABLE:
+            raise ImportError("Neither PyMuPDF nor pdfplumber is available")
+        
+        try:
+            if binary:
+                self.pdfplumber_pdf = pdfplumber.open(BytesIO(binary))
+            elif file_path:
+                self.pdfplumber_pdf = pdfplumber.open(file_path)
+            else:
+                raise ValueError("Either file_path or binary must be provided")
+            
+            sections = []
+            for page_num in range(from_page, min(to_page, len(self.pdfplumber_pdf.pages))):
+                page = self.pdfplumber_pdf.pages[page_num]
+                page_sections = self._extract_page_with_layout_pdfplumber(page, page_num)
+                sections.extend(page_sections)
+            
+            return sections
+        
+        finally:
+            if self.pdfplumber_pdf:
+                self.pdfplumber_pdf.close()
+                self.pdfplumber_pdf = None
+    
+    def _extract_page_with_layout_pdfplumber(self, page, page_num: int) -> List[Dict[str, Any]]:
+        """Extract content using pdfplumber (fallback method)."""
+        sections = []
+        
+        # Extract tables
+        tables = page.extract_tables()
+        for table in tables:
+            if table:
+                formatted_table = self._format_table(table)
+                if formatted_table:
+                    sections.append({
+                        'type': 'table',
+                        'text': formatted_table,
+                        'page': page_num,
+                        'bbox': None
+                    })
+        
+        # Extract text
+        text_content = page.extract_text()
+        if text_content and text_content.strip():
+            paragraphs = self._split_into_paragraphs(text_content)
+            for para in paragraphs:
+                if para.strip():
+                    sections.append({
+                        'type': 'text',
+                        'text': para,
+                        'page': page_num,
+                        'bbox': None
+                    })
+        
+        return sections
+    
+    def _extract_tables_pdfplumber_for_page(self, page_num: int) -> List[Dict[str, Any]]:
+        """Extract tables from a specific page using pdfplumber."""
+        if not PDFPLUMBER_AVAILABLE:
+            return []
+        
+        sections = []
+        # Open PDF with pdfplumber just for this page (if we have file_path)
+        # Note: This is a simplified approach - in production, you might want to cache the pdfplumber PDF
+        try:
+            # We need file_path to open with pdfplumber - this is a limitation
+            # For now, skip table extraction if we only have binary data
+            # In practice, table extraction can be done separately if needed
+            logger.debug(f"Table extraction with pdfplumber requires file_path (not available in this context)")
+            return []
+        except Exception as e:
+            logger.warning(f"Failed to extract tables with pdfplumber: {e}")
         return sections
     
     def _format_table(self, table: List[List[str]]) -> str:
@@ -215,30 +425,30 @@ class AdvancedPdfParser:
         
         return cleaned
     
-    def _ocr_fallback(self, page) -> str:
+    def _ocr_fallback_pymupdf(self, page) -> str:
         """
-        OCR fallback for scanned pages.
+        OCR fallback for scanned pages using PyMuPDF.
         
         Args:
-            page: pdfplumber Page object
+            page: PyMuPDF Page object
             
         Returns:
             OCR text
         """
         try:
             # Convert page to image
-            im = page.to_image(resolution=150)
+            pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))  # 2x zoom for better OCR
             
             # Use pytesseract for OCR
             try:
                 import pytesseract
                 from PIL import Image
                 
-                # Get PIL image
-                pil_image = im.original
+                # Convert to PIL Image
+                img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
                 
                 # Perform OCR
-                text = pytesseract.image_to_string(pil_image)
+                text = pytesseract.image_to_string(img)
                 return text
             
             except ImportError:

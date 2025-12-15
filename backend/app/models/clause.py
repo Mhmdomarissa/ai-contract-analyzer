@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_class import Base
@@ -54,7 +54,11 @@ class Clause(Base):
         UUID(as_uuid=True), ForeignKey("clause_groups.id", ondelete="SET NULL")
     )
     text: Mapped[str] = mapped_column(Text, nullable=False)
+    arabic_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_bilingual: Mapped[bool] = mapped_column(default=False, nullable=False)
     number_normalized: Mapped[str | None] = mapped_column(String(length=128))
+    analysis_results: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    analysis_status: Mapped[str | None] = mapped_column(String(length=32), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

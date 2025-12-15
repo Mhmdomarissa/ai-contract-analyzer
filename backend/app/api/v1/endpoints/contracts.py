@@ -7,7 +7,7 @@ from uuid import UUID
 import logging
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.api.v1.dependencies import get_db
 from app.core.config import settings
@@ -183,28 +183,133 @@ async def list_clauses(
     return contract_service.list_clauses_for_version(db, latest_version.id)
 
 
-@router.post("/{contract_id}/detect-conflicts", response_model=list[ConflictRead])
-async def detect_conflicts(
+@router.get("/{contract_id}/conflicts", response_model=list[ConflictRead])
+async def list_conflicts(
     contract_id: UUID,
-    db: Session = Depends(get_db)
-):
+    db: Session = Depends(get_db),
+) -> list[ConflictRead]:
     contract, latest_version = contract_service.get_contract_with_latest_version(db, contract_id)
     if not contract:
         raise HTTPException(status_code=404, detail="Contract not found")
     if not latest_version:
         raise HTTPException(status_code=404, detail="No contract version found")
 
-    clauses = contract_service.list_clauses_for_version(db, latest_version.id)
+    conflicts = db.query(Conflict).filter(
+        Conflict.contract_version_id == latest_version.id
+    ).options(
+        joinedload(Conflict.left_clause),
+        joinedload(Conflict.right_clause)
+    ).all()
+    
+    return [ConflictRead.model_validate(c, from_attributes=True) for c in conflicts]
+
+
+@router.post("/{contract_id}/detect-conflicts", response_model=list[ConflictRead])
+async def detect_conflicts(
+    contract_id: UUID,
+    db: Session = Depends(get_db)
+):
+    import sys
+    print(f"=== DETECT CONFLICTS ENDPOINT CALLED === contract_id: {contract_id}", file=sys.stderr, flush=True)
+    logger.info(f"Detect conflicts endpoint called for contract_id: {contract_id}")
+    logger.info(f"Request received at: {__import__('datetime').datetime.now()}")
+    
+    # Check if analysis is already in progress - prevent duplicate calls
+    try:
+        contract, latest_version = contract_service.get_contract_with_latest_version(db, contract_id)
+        if contract and latest_version:
+            clauses = contract_service.list_clauses_for_version(db, latest_version.id)
+            if clauses:
+                # Check if any clause is currently being analyzed
+                running_count = sum(1 for c in clauses if c.analysis_status == 'running')
+                if running_count > 0:
+                    logger.warning(f"Analysis already in progress for contract {contract_id}: {running_count} clauses running")
+                    print(f"WARNING: Analysis already in progress, returning existing conflicts", file=sys.stderr, flush=True)
+                    # Return existing conflicts instead of starting new analysis
+                    existing_conflicts = db.query(Conflict).filter(
+                        Conflict.contract_version_id == latest_version.id
+                    ).all()
+                    return existing_conflicts
+    except Exception as e:
+        logger.warning(f"Error checking for existing analysis: {e}, continuing with new analysis")
+    
+    try:
+        contract, latest_version = contract_service.get_contract_with_latest_version(db, contract_id)
+        logger.info(f"Contract lookup: contract={contract is not None}, version={latest_version is not None}")
+        print(f"DEBUG: Contract lookup: contract={contract is not None}, version={latest_version is not None}", file=sys.stderr, flush=True)
+    except Exception as e:
+        logger.error(f"Error getting contract: {e}", exc_info=True)
+        print(f"ERROR: Error getting contract: {e}", file=sys.stderr, flush=True)
+        raise
+    
+    if not contract:
+        logger.error(f"Contract not found: {contract_id}")
+        raise HTTPException(status_code=404, detail="Contract not found")
+    if not latest_version:
+        logger.error(f"No contract version found for contract: {contract_id}")
+        raise HTTPException(status_code=404, detail="No contract version found")
+
+    try:
+        clauses = contract_service.list_clauses_for_version(db, latest_version.id)
+        logger.info(f"Retrieved {len(clauses) if clauses else 0} clauses from database")
+        print(f"DEBUG: Retrieved {len(clauses) if clauses else 0} clauses from database", file=sys.stderr, flush=True)
+    except Exception as e:
+        logger.error(f"Error retrieving clauses: {e}", exc_info=True)
+        print(f"ERROR: Error retrieving clauses: {e}", file=sys.stderr, flush=True)
+        raise
+    
     if not clauses:
+        logger.warning(f"No clauses found for contract version: {latest_version.id}")
         raise HTTPException(status_code=400, detail="No clauses found. Run extraction first.")
         
-    # Convert to dict format expected by LLM service
-    clauses_data = [{"id": str(c.id), "text": c.text, "clause_number": c.clause_number} for c in clauses]
+    logger.info(f"Found {len(clauses)} clauses to analyze for conflicts")
+    print(f"DEBUG: Found {len(clauses)} clauses", file=sys.stderr, flush=True)
     
-    # LLM Detect
-    llm = LLMService(base_url=settings.OLLAMA_URL)
-    logger.info("Step 2: Identifying conflicts...")
+    # Initialize LLM service
+    try:
+        llm = LLMService(base_url=settings.OLLAMA_URL)
+        logger.info(f"Initialized LLMService for conflict detection")
+        print(f"DEBUG: Created LLMService instance", file=sys.stderr, flush=True)
+    except Exception as e:
+        logger.error(f"Error creating LLMService: {e}", exc_info=True)
+        print(f"ERROR: Error creating LLMService: {e}", file=sys.stderr, flush=True)
+        raise
+    
+    # Prepare clauses data for conflict detection
+    # Send full clause text with all context for comprehensive analysis
+    try:
+        clauses_data = [
+            {
+                "id": str(c.id),
+                "text": c.text,  # Full text - never truncated
+                "clause_number": c.clause_number or f"#{c.order_index}",
+                "heading": c.heading
+            }
+            for c in clauses
+        ]
+        logger.info(f"Prepared {len(clauses_data)} clauses for conflict detection")
+        logger.info(f"Total text length: {sum(len(c.get('text', '')) for c in clauses_data)} characters")
+        print(f"DEBUG: Prepared {len(clauses_data)} clauses for conflict detection", file=sys.stderr, flush=True)
+    except Exception as e:
+        logger.error(f"Error preparing clauses for conflict detection: {e}", exc_info=True)
+        print(f"ERROR: Error preparing clauses for conflict detection: {e}", file=sys.stderr, flush=True)
+        raise
+    
+    # Analyze all clauses together for conflicts
+    # The LLM will understand the entire contract context (parties, contract type, jurisdiction, etc.)
+    # and then identify conflicts between clauses
+    logger.info("=" * 80)
+    logger.info("Starting comprehensive conflict analysis...")
+    logger.info("LLM is analyzing all clauses contextually to understand the contract and identify conflicts")
+    logger.info("=" * 80)
+    
+    # Update a special status to indicate we're in contextual analysis phase
+    # We'll use the contract's metadata or a special clause to track this
+    # For now, just log it - the UI will poll and see all clauses are done, then conflicts appear
+    
+    # Call LLM to identify conflicts - it will understand the full context and check all clauses
     conflicts_data = await llm.identify_conflicts(clauses_data)
+    logger.info(f"Conflict analysis completed: Found {len(conflicts_data) if conflicts_data else 0} conflicts between clauses")
     # Debug: log raw LLM response to help diagnose mapping issues
     try:
         logger.info("LLM identify_conflicts returned %s items", len(conflicts_data) if conflicts_data is not None else 0)
@@ -235,9 +340,12 @@ async def detect_conflicts(
     # Save Conflicts
     clause_lookup = {str(c.id): c for c in clauses}
     saved_conflicts = []
-    for conf in conflicts_data:
+    logger.info(f"Processing {len(conflicts_data)} conflicts from LLM")
+    for idx, conf in enumerate(conflicts_data):
         clause_id_1 = conf.get("clause_id_1")
         clause_id_2 = conf.get("clause_id_2")
+        
+        logger.info(f"Processing conflict {idx + 1}: clause_id_1={clause_id_1}, clause_id_2={clause_id_2}")
 
         clause_1 = clause_lookup.get(str(clause_id_1))
         clause_2 = clause_lookup.get(str(clause_id_2))
@@ -249,99 +357,63 @@ async def detect_conflicts(
                 clause_id_2,
             )
             continue
+        
+        # Skip conflicts where both clauses are the same
+        if clause_1.id == clause_2.id:
+            logger.warning(
+                "Skipping conflict between same clause: %s",
+                clause_id_1,
+            )
+            continue
+        
+        # Skip conflicts involving Gap clauses
+        if clause_1.clause_number == 'Gap' or clause_2.clause_number == 'Gap':
+            logger.warning(
+                "Skipping conflict involving Gap clause: %s, %s",
+                clause_1.clause_number,
+                clause_2.clause_number,
+            )
+            continue
 
         def _label(clause: Clause) -> str:
             if clause.clause_number:
                 return clause.clause_number
             return f"#{clause.order_index}"
 
-        summary = (
-            f"Conflict between Clause {_label(clause_1)} "
-            f"and Clause {_label(clause_2)}"
-        )
+        # Use LLM's detailed description, or fallback to basic summary
+        llm_description = conf.get("description", "")
+        if llm_description:
+            summary = llm_description
+        else:
+            summary = (
+                f"Conflict between Clause {_label(clause_1)} "
+                f"and Clause {_label(clause_2)}"
+            )
 
         conflict = Conflict(
             analysis_run_id=run.id,
             contract_version_id=latest_version.id,
             severity=conf.get("severity", "UNKNOWN"),
-            explanation=None, # Step 3 will fill this
+            explanation=conf.get("suggested_resolution") or "",  # Store suggested resolution in explanation field
             summary=summary,
             left_clause_id=clause_1.id,
             right_clause_id=clause_2.id,
         )
         db.add(conflict)
         saved_conflicts.append(conflict)
+        logger.info(f"✓ Saved conflict {idx + 1}: {_label(clause_1)} vs {_label(clause_2)}")
         
+    logger.info(f"Committing {len(saved_conflicts)} conflicts to database")
     db.commit()
-    for c in saved_conflicts:
-        db.refresh(c)
-        
-    return saved_conflicts
-
-
-@router.post("/{contract_id}/generate-explanations", response_model=list[ConflictRead])
-async def generate_explanations(
-    contract_id: UUID,
-    db: Session = Depends(get_db)
-):
-    contract, latest_version = contract_service.get_contract_with_latest_version(db, contract_id)
-    if not contract:
-        raise HTTPException(status_code=404, detail="Contract not found")
-    if not latest_version:
-        raise HTTPException(status_code=404, detail="No contract version found")
-
-    clauses = contract_service.list_clauses_for_version(db, latest_version.id)
-    clauses_data = [{"id": str(c.id), "text": c.text, "clause_number": c.clause_number} for c in clauses]
+    logger.info(f"✓ Successfully saved {len(saved_conflicts)} conflicts")
     
-    # Get conflicts
-    conflicts = db.query(Conflict).filter(
-        Conflict.contract_version_id == latest_version.id,
-        Conflict.explanation == None
+    # Reload conflicts with clause relationships for response
+    conflict_ids = [c.id for c in saved_conflicts]
+    conflicts_with_clauses = db.query(Conflict).filter(
+        Conflict.id.in_(conflict_ids)
+    ).options(
+        joinedload(Conflict.left_clause),
+        joinedload(Conflict.right_clause)
     ).all()
     
-    if not conflicts:
-        # Maybe they already have explanations? Return all.
-        return db.query(Conflict).filter(Conflict.contract_version_id == latest_version.id).all()
-    
-    conflicts_for_llm = []
-    for c in conflicts:
-        if not c.left_clause_id or not c.right_clause_id:
-            logger.warning("Conflict %s missing clause references; skipping explanation.", c.id)
-            continue
-        conflicts_for_llm.append({
-            "clause_id_1": str(c.left_clause_id),
-            "clause_id_2": str(c.right_clause_id),
-            "db_id": c.id,
-        })
-            
-    if not conflicts_for_llm:
-        return db.query(Conflict).filter(Conflict.contract_version_id == latest_version.id).all()
-
-    # LLM Explain
-    llm = LLMService(base_url=settings.OLLAMA_URL)
-    logger.info("Step 3: Generating explanations...")
-    
-    explanations = await llm.generate_explanations(conflicts_for_llm, clauses_data)
-    
-    # Update Conflicts
-    for expl in explanations:
-        # We need to match the explanation back to the conflict.
-        # The LLM returns clause_id_1 and clause_id_2.
-        # We can match against conflicts_for_llm
-        
-        c1 = expl.get("clause_id_1")
-        c2 = expl.get("clause_id_2")
-        
-        # Find matching conflict in our list
-        match = next((c for c in conflicts_for_llm if c["clause_id_1"] == c1 and c["clause_id_2"] == c2), None)
-        
-        if match:
-            db_id = match["db_id"]
-            conflict = db.query(Conflict).filter(Conflict.id == db_id).first()
-            if conflict:
-                conflict.explanation = expl.get("explanation", "No explanation generated.")
-                conflict.severity = expl.get("severity", conflict.severity)
-                
-    db.commit()
-    
-    return db.query(Conflict).filter(Conflict.contract_version_id == latest_version.id).all()
+    return conflicts_with_clauses

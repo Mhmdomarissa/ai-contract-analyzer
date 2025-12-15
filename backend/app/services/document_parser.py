@@ -53,9 +53,16 @@ def parse_document(file_path: str) -> str:
         if USE_ADVANCED_PARSERS:
             try:
                 if suffix == ".pdf":
-                    parser = AdvancedPdfParser(use_ocr=True, layout_recognition=True)
+                    # Use pdfplumber for PDF parsing
+                    parser = AdvancedPdfParser(
+                        use_ocr=True, 
+                        layout_recognition=True,
+                        extract_tables=True,
+                        use_pdfplumber_for_tables=True
+                    )
                     text = parser.parse(file_path=str(path))
-                    method = "advanced_pdf"
+                    method = "pdfplumber"
+                    logger.info(f"✅ Extraction complete using pdfplumber (length: {len(text)} chars)")
                     
                 elif suffix in [".docx", ".doc"]:
                     parser = AdvancedDocxParser()

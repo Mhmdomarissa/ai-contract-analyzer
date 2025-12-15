@@ -30,7 +30,9 @@ dependencies = [
   "Pillow>=10.0.0",
   "pdf2image>=1.17.0",
   # Advanced parsing dependencies
-  "pdfplumber>=0.11.0",
+  "pymupdf>=1.23.0",  # Primary PDF parser (fast and accurate)
+  "pdfplumber>=0.11.0",  # Table extraction (primary method)
+  "camelot-py[cv]>=0.11.0",  # Advanced table extraction for complex tables
   "pandas>=2.0.0",
   "openpyxl>=3.1.0",
   "python-pptx>=0.6.0",
@@ -43,8 +45,9 @@ dependencies = [
   "scikit-learn>=1.4.0",
   "numpy>=1.26.0",
   # Optional ML/OCR (comment out if not using GPU)
-  # "torch>=2.0.0",
-  # "torchvision>=0.15.0",
+  "torch>=2.0.0",
+  "torchvision>=0.15.0",
+  "transformers>=4.30.0",  # Required for DocFormer
   # "onnxruntime>=1.16.0",
   # "huggingface-hub>=0.20.0",
 ]

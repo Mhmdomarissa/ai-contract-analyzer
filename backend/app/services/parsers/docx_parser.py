@@ -21,8 +21,16 @@ class AdvancedDocxParser:
     Advanced DOCX parser that extracts text, tables, and maintains structure.
     """
     
-    def __init__(self):
+    def __init__(self, extract_tables: bool = True):
+        """
+        Initialize DOCX parser.
+        
+        Args:
+            extract_tables: Enable structured table extraction
+        """
         self.doc = None
+        self.extract_tables = extract_tables
+        self.extracted_tables = []  # Store structured tables
     
     def parse(self, file_path: str = None, binary: bytes = None, 
               from_page: int = 0, to_page: int = 100000000) -> str:
@@ -97,6 +105,14 @@ class AdvancedDocxParser:
         
         # Extract tables
         tables = [self._extract_table_content(tb) for tb in self.doc.tables]
+        
+        # Extract structured tables if enabled
+        if self.extract_tables:
+            self.extracted_tables = []
+            for idx, table in enumerate(self.doc.tables):
+                structured = self._extract_structured_table(table, idx)
+                if structured:
+                    self.extracted_tables.append(structured)
         
         return sections, tables
     
@@ -227,6 +243,88 @@ class AdvancedDocxParser:
         if col_count > 3:
             return lines
         return ["\n".join(lines)]
+    
+    def _extract_structured_table(self, table, table_idx: int) -> dict:
+        """
+        Extract table as structured JSON format (similar to PDF table extractor).
+        
+        Args:
+            table: python-docx Table object
+            table_idx: Table index
+            
+        Returns:
+            Structured table dictionary
+        """
+        try:
+            # Convert table to list of lists
+            rows = []
+            for row in table.rows:
+                rows.append([cell.text.strip() if cell.text else "" for cell in row.cells])
+            
+            if not rows or len(rows) < 1:
+                return None
+            
+            # First row as headers
+            headers = rows[0] if rows else []
+            # If no headers, generate them
+            if not any(headers):
+                max_cols = max(len(row) for row in rows) if rows else 0
+                headers = [f"Column_{i+1}" for i in range(max_cols)]
+            
+            data_rows = rows[1:] if len(rows) > 1 else []
+            
+            # Format as text for clause inclusion
+            formatted_lines = []
+            for row in data_rows:
+                pairs = []
+                for i, cell in enumerate(row):
+                    if cell and cell.strip():
+                        if i < len(headers) and headers[i]:
+                            pairs.append(f"{headers[i]}: {cell}")
+                        else:
+                            pairs.append(cell)
+                if pairs:
+                    formatted_lines.append("; ".join(pairs))
+            
+            # Structure as JSON
+            structured = {
+                'table_id': f"table_docx_{table_idx}",
+                'method': 'docx',
+                'headers': headers,
+                'rows': [],
+                'row_count': len(data_rows),
+                'column_count': len(headers),
+                'formatted_text': "\n".join(formatted_lines),
+                'json_data': []
+            }
+            
+            # Add rows as dictionaries
+            for row in data_rows:
+                row_dict = {}
+                for i, cell in enumerate(row):
+                    if i < len(headers):
+                        row_dict[headers[i]] = cell
+                    else:
+                        row_dict[f"Column_{i+1}"] = cell
+                
+                if any(row_dict.values()):  # Skip empty rows
+                    structured['rows'].append(row_dict)
+                    structured['json_data'].append(row_dict)
+            
+            return structured
+        
+        except Exception as e:
+            logger.error(f"Error structuring DOCX table: {e}")
+            return None
+    
+    def get_extracted_tables(self) -> List[dict]:
+        """
+        Get extracted structured tables.
+        
+        Returns:
+            List of structured table dictionaries
+        """
+        return self.extracted_tables
     
     def __call__(self, file_path: str, binary: bytes = None, 
                  from_page: int = 0, to_page: int = 100000000) -> Tuple[List[Tuple[str, str]], List[List[str]]]:

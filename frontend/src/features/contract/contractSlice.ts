@@ -39,7 +39,33 @@ export interface Clause {
   language: string | null;
   clause_group_id: string | null;
   text: string;
+  arabic_text?: string | null;
+  is_bilingual?: boolean;
   number_normalized: string | null;
+  analysis_results?: {
+    spelling_errors?: Array<{
+      word: string;
+      position: number;
+      suggestion: string;
+      severity: 'HIGH' | 'MEDIUM' | 'LOW';
+    }>;
+    conflicts?: Array<{
+      clause_id?: string;
+      clause_number: string;
+      type: 'LOGICAL' | 'LEGAL' | 'TERMINOLOGICAL';
+      description: string;
+      severity: 'HIGH' | 'MEDIUM' | 'LOW';
+    }>;
+    grammar_issues?: Array<{
+      issue: string;
+      position: number;
+      suggestion: string;
+      severity: 'HIGH' | 'MEDIUM' | 'LOW';
+    }>;
+    confidence_score?: number;
+    summary?: string;
+  } | null;
+  analysis_status?: string | null;
   created_at: string;
 }
 
@@ -216,13 +242,15 @@ export const extractClauses = createAsyncThunk<
 );
 
 export const detectConflicts = createAsyncThunk<
-  Conflict[],
+  { conflicts: Conflict[]; clauses: Clause[] },
   string,
   RejectValue
 >(
   'contract/detectConflicts',
-  async (contractId, { rejectWithValue, signal }) => {
+  async (contractId, { rejectWithValue, signal, dispatch }) => {
     try {
+      // Conflict detection is now synchronous - all clauses are sent to LLM at once
+      // The backend returns conflicts immediately after analysis
       const response = await fetch(`${API_BASE_URL}/contracts/${contractId}/detect-conflicts`, {
         method: 'POST',
         signal,
@@ -230,34 +258,41 @@ export const detectConflicts = createAsyncThunk<
       if (!response.ok) {
         throw new Error('Conflict detection failed');
       }
-      return (await response.json()) as Conflict[];
+      const conflicts = (await response.json()) as Conflict[];
+      
+      // Fetch updated clauses (in case they were modified)
+      const clausesResponse = await fetch(`${API_BASE_URL}/contracts/${contractId}/clauses`, {
+        method: 'GET',
+        signal,
+      });
+      if (!clausesResponse.ok) {
+        throw new Error('Failed to fetch clauses');
+      }
+      const clauses = (await clausesResponse.json()) as Clause[];
+      
+      // Update Redux state with latest clauses
+      dispatch({
+        type: 'contract/updateClauses',
+        payload: clauses,
+      });
+      
+      // Fetch conflicts separately to ensure we have the latest
+      const conflictsResponse = await fetch(`${API_BASE_URL}/contracts/${contractId}/conflicts`, {
+        method: 'GET',
+        signal,
+      });
+      if (conflictsResponse.ok) {
+        const latestConflicts = (await conflictsResponse.json()) as Conflict[];
+        return { conflicts: latestConflicts, clauses };
+      }
+      
+      return { conflicts, clauses };
     } catch (err) {
       return rejectWithValue(formatError(err));
     }
   }
 );
 
-export const generateExplanations = createAsyncThunk<
-  Conflict[],
-  string,
-  RejectValue
->(
-  'contract/generateExplanations',
-  async (contractId, { rejectWithValue, signal }) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/contracts/${contractId}/generate-explanations`, {
-        method: 'POST',
-        signal,
-      });
-      if (!response.ok) {
-        throw new Error('Explanation generation failed');
-      }
-      return (await response.json()) as Conflict[];
-    } catch (err) {
-      return rejectWithValue(formatError(err));
-    }
-  }
-);
 
 const contractSlice = createSlice({
   name: 'contract',
@@ -272,6 +307,27 @@ const contractSlice = createSlice({
       state.error = null;
       state.currentStep = 'upload';
       state.loadingStep = null;
+    },
+    updateClauses: (state, action) => {
+      // Progressive update: merge new clause data with existing clauses
+      // This preserves the UI state while updating analysis results
+      const updatedClauses = action.payload as Clause[];
+      const clauseMap = new Map(state.clauses.map(c => [c.id, c]));
+      
+      // Update existing clauses or add new ones
+      updatedClauses.forEach(newClause => {
+        const existing = clauseMap.get(newClause.id);
+        if (existing) {
+          // Update existing clause with new analysis results
+          Object.assign(existing, newClause);
+        } else {
+          // Add new clause
+          clauseMap.set(newClause.id, newClause);
+        }
+      });
+      
+      // Convert back to array, maintaining order
+      state.clauses = Array.from(clauseMap.values()).sort((a, b) => a.order_index - b.order_index);
     }
   },
   extraReducers: (builder) => {
@@ -325,8 +381,9 @@ const contractSlice = createSlice({
     });
     builder.addCase(detectConflicts.fulfilled, (state, action) => {
       state.loadingStep = null;
-      state.conflicts = action.payload;
-      state.currentStep = 'explain';
+      state.conflicts = action.payload.conflicts;
+      state.clauses = action.payload.clauses; // Update clauses with analysis results
+      state.currentStep = 'complete';
       state.status = 'succeeded';
     });
     builder.addCase(detectConflicts.rejected, (state, action) => {
@@ -335,25 +392,8 @@ const contractSlice = createSlice({
       state.status = 'failed';
     });
 
-    // Explain
-    builder.addCase(generateExplanations.pending, (state) => {
-      state.loadingStep = 'explain';
-      state.error = null;
-      state.status = 'loading';
-    });
-    builder.addCase(generateExplanations.fulfilled, (state, action) => {
-      state.loadingStep = null;
-      state.conflicts = action.payload; // Updates conflicts with explanations
-      state.currentStep = 'complete';
-      state.status = 'succeeded';
-    });
-    builder.addCase(generateExplanations.rejected, (state, action) => {
-      state.loadingStep = null;
-      state.error = action.payload ?? action.error.message ?? 'Explanation generation failed';
-      state.status = 'failed';
-    });
   },
 });
 
-export const { resetState } = contractSlice.actions;
+export const { resetState, updateClauses } = contractSlice.actions;
 export default contractSlice.reducer;
