@@ -1,0 +1,650 @@
+[
+  {
+    "clause_number": "AGREEMENT",
+    "category": "PARTIES",
+    "start_char": 0,
+    "end_char": 1150,
+    "text": "Master Services Agreement for\nthe Provision of Technology\nResources\nParties: DP World FZE & Alpha Data Processing Services\nDecember 2022\n\nAGREEMENT\nThis Agreements is made BETWEEN\nDP WORLD FZE, whose Head Office is located at P.O. Box: 17000, JAFZA 17, Jebel Ali Freezone, Dubai,\nUAE, hereinafter (\"THE CLIENT\");\nAND\nALPHA DATA PROCESSING SERVICES whose registered address is Mazaya Business Avenue, BBI\nTower, 35th Floor Jumeirah Lake Towers, DUBAI, UAE, ZIP/Postal Code- 8829\nhereinafter referred to (The \"Agency \");\nWHEREAS THE CLIENT has the requirement of professional Technology resources on various disciplines\non an interim basis to work either on site or offshore\nWHEREAS the Agency is a prequalified resource provider with the CLIENT and confirmed with the CLIENT\nthat they shall provide the qualified and experienced Information Technology resources to work for the\nCLIENT on short term or long term for temporary basis as and when required in accordance with the\nprovisions of this Agreement.\nNOW, THEREFORE, in consideration of the mutual covenants set forth herein and intending to be legally\nbound, the Parties hereto agree as follows:",
+    "metadata": {
+      "type": "preamble",
+      "appendix": null
+    }
+  },
+  {
+    "clause_number": "1",
+    "category": "DEFINITIONS",
+    "start_char": 1150,
+    "end_char": 1401,
+    "text": "1. DEFINITIONS AND INTERPRETATION\nIn this Agreement:\n\"Fee\" means the daily or monthly price to be paid in AED or USD by THE CLIENT to the Agency for the\nperformance of the Services of the selected Resource within the agreed fee structure attached as",
+    "metadata": {
+      "type": "main",
+      "has_table": false,
+      "appendix": null,
+      "original_number": "1"
+    }
+  },
+  {
+    "clause_number": "2.1",
+    "category": "PARTIES",
+    "start_char": 1484,
+    "end_char": 1535,
+    "text": "2.1 The Agency will, on the request of the Client:",
+    "metadata": {
+      "type": "sub",
+      "has_table": false,
+      "appendix": null,
+      "original_number": "2.1"
+    }
+  },
+  {
+    "clause_number": "(a)",
+    "category": "PARTIES",
+    "start_char": 1535,
+    "end_char": 1616,
+    "text": "(a) As and when required by the Client, the Agency shall provide THE CLIENT with",
+    "metadata": {
+      "type": "lettered",
+      "has_table": false,
+      "appendix": null,
+      "original_number": "(a)"
+    }
+  },
+  {
+    "clause_number": "(b)",
+    "category": "PARTIES",
+    "start_char": 1654,
+    "end_char": 1702,
+    "text": "(b) submit the curriculum vitaes to the Client;",
+    "metadata": {
+      "type": "lettered",
+      "has_table": false,
+      "appendix": null,
+      "original_number": "(b)"
+    }
+  },
+  {
+    "clause_number": "(c)",
+    "category": "PARTIES",
+    "start_char": 1702,
+    "end_char": 1769,
+    "text": "(c) assist the Client in scheduling interviews with the Applicant;",
+    "metadata": {
+      "type": "lettered",
+      "has_table": false,
+      "appendix": null,
+      "original_number": "(c)"
+    }
+  },
+  {
+    "clause_number": "(d)",
+    "category": "Uncategorized",
+    "start_char": 1769,
+    "end_char": 1818,
+    "text": "(d) undertake reference checks of the Applicant;",
+    "metadata": {
+      "type": "lettered",
+      "has_table": false,
+      "appendix": null,
+      "original_number": "(d)"
+    }
+  },
+  {
+    "clause_number": "(e)",
+    "category": "PARTIES",
+    "start_char": 1818,
+    "end_char": 1892,
+    "text": "(e) provide various information to the Applicant on behalf of the Client;",
+    "metadata": {
+      "type": "lettered",
+      "has_table": false,
+      "appendix": null,
+      "original_number": "(e)"
+    }
+  },
+  {
+    "clause_number": "(f)",
+    "category": "PARTIES",
+    "start_char": 1892,
+    "end_char": 1975,
+    "text": "(f) provide all additional assistance to the Client as required in the onboarding;",
+    "metadata": {
+      "type": "lettered",
+      "has_table": false,
+      "appendix": null,
+      "original_number": "(f)"
+    }
+  },
+  {
+    "clause_number": "(g)",
+    "category": "PARTIES",
+    "start_char": 1975,
+    "end_char": 2059,
+    "text": "(g) The Agency shall conduct reference checks and assessments as and when requested",
+    "metadata": {
+      "type": "lettered",
+      "has_table": false,
+      "appendix": null,
+      "original_number": "(g)"
+    }
+  },
+  {
+    "clause_number": "2.2",
+    "category": "TERM",
+    "start_char": 2074,
+    "end_char": 2256,
+    "text": "2.2 The Agency shall perform the Services in accordance with the terms and conditions of this\nAgreement and the Appendices or any other Client issued authorisation or agreed by both",
+    "metadata": {
+      "type": "sub",
+      "has_table": false,
+      "appendix": null,
+      "original_number": "2.2"
+    }
+  },
+  {
+    "clause_number": "3.1",
+    "category": "TERM",
+    "start_char": 2293,
+    "end_char": 2389,
+    "text": "3.1. This Agreement shall commence from the Effective Date and shall continue in full force and",
+    "metadata": {
+      "type": "sub",
+      "has_table": false,
+      "appendix": null,
+      "original_number": "3.1"
+    }
+  },
+  {
+    "clause_number": "3.2",
+    "category": "SCOPE",
+    "start_char": 2476,
+    "end_char": 2570,
+    "text": "3.2. The Agency acknowledges and agrees that any existing agreements related to the services.",
+    "metadata": {
+      "type": "sub",
+      "has_table": false,
+      "appendix": null,
+      "original_number": "3.2"
+    }
+  },
+  {
+    "clause_number": "4.1",
+    "category": "PAYMENT",
+    "start_char": 2590,
+    "end_char": 2689,
+    "text": "4.1 The Agency shall charge the Client and the Client shall pay the Fees for the services provided",
+    "metadata": {
+      "type": "sub",
+      "has_table": false,
+      "appendix": null,
+      "original_number": "4.1"
+    }
+  },
+  {
+    "clause_number": "4.2",
+    "category": "PAYMENT",
+    "start_char": 2776,
+    "end_char": 2850,
+    "text": "4.2 The Fee shall not increase from the Rates specified in the Rate Card.",
+    "metadata": {
+      "type": "sub",
+      "has_table": false,
+      "appendix": null,
+      "original_number": "4.2"
+    }
+  },
+  {
+    "clause_number": "4.3",
+    "category": "PAYMENT",
+    "start_char": 2850,
+    "end_char": 2947,
+    "text": "4.3 The Fee is exclusive of all taxes. Any deductions for tax, government charges, VAT are borne",
+    "metadata": {
+      "type": "sub",
+      "has_table": false,
+      "appendix": null,
+      "original_number": "4.3"
+    }
+  },
+  {
+    "clause_number": "4.4",
+    "category": "PAYMENT",
+    "start_char": 2962,
+    "end_char": 3058,
+    "text": "4.4 Agency is not entitled for any Fees for any Introduction of the Applicant without resulting",
+    "metadata": {
+      "type": "sub",
+      "has_table": false,
+      "appendix": null,
+      "original_number": "4.4"
+    }
+  },
+  {
+    "clause_number": "4.5",
+    "category": "PARTIES",
+    "start_char": 3076,
+    "end_char": 3169,
+    "text": "4.5 If, after confirmation of the Engagement has been made to the Agency, the Client decides",
+    "metadata": {
+      "type": "sub",
+      "has_table": false,
+      "appendix": null,
+      "original_number": "4.5"
+    }
+  },
+  {
+    "clause_number": "4.6",
+    "category": "PAYMENT",
+    "start_char": 3254,
+    "end_char": 3354,
+    "text": "4.6 Payment of the Fee by the Client shall be without prejudice to any claim or rights which either",
+    "metadata": {
+      "type": "sub",
+      "has_table": false,
+      "appendix": null,
+      "original_number": "4.6"
+    }
+  },
+  {
+    "clause_number": "4.7",
+    "category": "Uncategorized",
+    "start_char": 3403,
+    "end_char": 3445,
+    "text": "4.7 Chargeable Days, Leaves, Extra Effort",
+    "metadata": {
+      "type": "sub",
+      "has_table": false,
+      "appendix": null,
+      "original_number": "4.7"
+    }
+  },
+  {
+    "clause_number": "4.7.1",
+    "category": "PARTIES",
+    "start_char": 3445,
+    "end_char": 3538,
+    "text": "4.7.1 The Agency shall not bill the Client for the Annual Leave, Sick Leave, Emergency Leave",
+    "metadata": {
+      "type": "sub_sub",
+      "has_table": false,
+      "appendix": null,
+      "original_number": "4.7.1"
+    }
+  },
+  {
+    "clause_number": "4.7.2",
+    "category": "PARTIES",
+    "start_char": 3594,
+    "end_char": 3686,
+    "text": "4.7.2 However, should there be a need for urgent support in project, Client can request for",
+    "metadata": {
+      "type": "sub_sub",
+      "has_table": false,
+      "appendix": null,
+      "original_number": "4.7.2"
+    }
+  },
+  {
+    "clause_number": "4.7.3",
+    "category": "Uncategorized",
+    "start_char": 3739,
+    "end_char": 3812,
+    "text": "4.7.3 For each Resource, per month 2 paid extra effort days are allowed.",
+    "metadata": {
+      "type": "sub_sub",
+      "has_table": false,
+      "appendix": null,
+      "original_number": "4.7.3"
+    }
+  },
+  {
+    "clause_number": "4.7.4",
+    "category": "Uncategorized",
+    "start_char": 3812,
+    "end_char": 3901,
+    "text": "4.7.4 If Resource doesn't consume the earned Comp Off, it will be lapsed and no monetary",
+    "metadata": {
+      "type": "sub_sub",
+      "has_table": false,
+      "appendix": null,
+      "original_number": "4.7.4"
+    }
+  },
+  {
+    "clause_number": "4.7.5",
+    "category": "SCOPE",
+    "start_char": 3955,
+    "end_char": 4069,
+    "text": "4.7.5 For example, if the Resource worked 2 days extra in a month (in Q1), 2 Comp Off is\nearned for the Resource.",
+    "metadata": {
+      "type": "sub_sub",
+      "has_table": false,
+      "appendix": null,
+      "original_number": "4.7.5"
+    }
+  },
+  {
+    "clause_number": "APPENDIX 1",
+    "category": "APPENDIX",
+    "start_char": 4070,
+    "end_char": 4158,
+    "text": "APPENDIX 1: RATE CARD\nProject Manager roles and rates\nQuality Assurance roles and rates",
+    "metadata": {
+      "type": "appendix",
+      "has_table": false,
+      "appendix": "1",
+      "original_number": "APPENDIX 1"
+    }
+  },
+  {
+    "clause_number": "APPENDIX 2",
+    "category": "APPENDIX",
+    "start_char": 4159,
+    "end_char": 4278,
+    "text": "APPENDIX 2: APPLICANT ENGAGEMENT METHODOLOGY\nThe CLIENT will be issuing the notification of requirement through email.",
+    "metadata": {
+      "type": "appendix",
+      "has_table": false,
+      "appendix": "2",
+      "original_number": "APPENDIX 2"
+    }
+  },
+  {
+    "clause_number": "APPENDIX 3",
+    "category": "APPENDIX",
+    "start_char": 4279,
+    "end_char": 4309,
+    "text": "APPENDIX 3: ENGAGEMENT MATRIX",
+    "metadata": {
+      "type": "appendix",
+      "has_table": false,
+      "appendix": "3",
+      "original_number": "APPENDIX 3"
+    }
+  },
+  {
+    "clause_number": "A3.1.1",
+    "category": "PARTIES",
+    "start_char": 4396,
+    "end_char": 4447,
+    "text": "1.1 Total Spend across all THE CLIENT's locations.",
+    "metadata": {
+      "type": "sub",
+      "has_table": false,
+      "appendix": "3",
+      "original_number": "1.1"
+    }
+  },
+  {
+    "clause_number": "A3.1.2",
+    "category": "Uncategorized",
+    "start_char": 4447,
+    "end_char": 4487,
+    "text": "1.2 Numbers of Engagements by location.",
+    "metadata": {
+      "type": "sub",
+      "has_table": false,
+      "appendix": "3",
+      "original_number": "1.2"
+    }
+  },
+  {
+    "clause_number": "A3.1.3",
+    "category": "Uncategorized",
+    "start_char": 4487,
+    "end_char": 4528,
+    "text": "1.3 Dates registered and current status.",
+    "metadata": {
+      "type": "sub",
+      "has_table": false,
+      "appendix": "3",
+      "original_number": "1.3"
+    }
+  },
+  {
+    "clause_number": "A3.1.4",
+    "category": "Uncategorized",
+    "start_char": 4528,
+    "end_char": 4595,
+    "text": "1.4 CV's submitted/Interviews arranged/offers and placements made.",
+    "metadata": {
+      "type": "sub",
+      "has_table": false,
+      "appendix": "3",
+      "original_number": "1.4"
+    }
+  },
+  {
+    "clause_number": "A3.2.1",
+    "category": "Uncategorized",
+    "start_char": 4609,
+    "end_char": 4641,
+    "text": "2.1 Open vacancies by location.",
+    "metadata": {
+      "type": "sub",
+      "has_table": false,
+      "appendix": "3",
+      "original_number": "2.1"
+    }
+  },
+  {
+    "clause_number": "A3.2.2",
+    "category": "Uncategorized",
+    "start_char": 4641,
+    "end_char": 4717,
+    "text": "2.2 Average time to fill vacancies for the month expressed in days / weeks.",
+    "metadata": {
+      "type": "sub",
+      "has_table": false,
+      "appendix": "3",
+      "original_number": "2.2"
+    }
+  },
+  {
+    "clause_number": "A3.2.3",
+    "category": "Uncategorized",
+    "start_char": 4717,
+    "end_char": 4757,
+    "text": "2.3 Ratio of CV's against each vacancy.",
+    "metadata": {
+      "type": "sub",
+      "has_table": false,
+      "appendix": "3",
+      "original_number": "2.3"
+    }
+  },
+  {
+    "clause_number": "A3.2.4",
+    "category": "PAYMENT",
+    "start_char": 4757,
+    "end_char": 4824,
+    "text": "2.4 Invoice accuracy: number of rejected invoices, invoice issues.",
+    "metadata": {
+      "type": "sub",
+      "has_table": false,
+      "appendix": "3",
+      "original_number": "2.4"
+    }
+  },
+  {
+    "clause_number": "APPENDIX 4",
+    "category": "APPENDIX",
+    "start_char": 4825,
+    "end_char": 4938,
+    "text": "APPENDIX 4: KEY PERFORMANCE INDICATORS\nKPI's shall be used to measure the overall Service Delivery.\n\nAPPENDIX 5:",
+    "metadata": {
+      "type": "appendix",
+      "has_table": false,
+      "appendix": "4",
+      "original_number": "APPENDIX 4"
+    }
+  },
+  {
+    "clause_number": "A4.1",
+    "category": "PARTIES",
+    "start_char": 4997,
+    "end_char": 5084,
+    "text": "1. The Agency shall ensure access to DP World information systems shall be restricted.",
+    "metadata": {
+      "type": "main",
+      "has_table": false,
+      "appendix": "4",
+      "original_number": "1"
+    }
+  },
+  {
+    "clause_number": "A4.2",
+    "category": "PARTIES",
+    "start_char": 5084,
+    "end_char": 5169,
+    "text": "2. The Agency shall ensure DPW information is not copied, used, stored or published.",
+    "metadata": {
+      "type": "main",
+      "has_table": false,
+      "appendix": "4",
+      "original_number": "2"
+    }
+  },
+  {
+    "clause_number": "A4.3",
+    "category": "PARTIES",
+    "start_char": 5169,
+    "end_char": 5265,
+    "text": "3. The Agency shall ensure DPW's information & assets are used for the contracted purpose only.",
+    "metadata": {
+      "type": "main",
+      "has_table": false,
+      "appendix": "4",
+      "original_number": "3"
+    }
+  },
+  {
+    "clause_number": "A4.4",
+    "category": "PARTIES",
+    "start_char": 5265,
+    "end_char": 5351,
+    "text": "4. The Agency or sub-contractor shall ensure its employees undergo background checks.",
+    "metadata": {
+      "type": "main",
+      "has_table": false,
+      "appendix": "4",
+      "original_number": "4"
+    }
+  },
+  {
+    "clause_number": "A4.5",
+    "category": "SCOPE",
+    "start_char": 5351,
+    "end_char": 5437,
+    "text": "5. If the Agency has onshore outsourced personnel deployed to work at DPW's premises.",
+    "metadata": {
+      "type": "main",
+      "has_table": false,
+      "appendix": "4",
+      "original_number": "5"
+    }
+  },
+  {
+    "clause_number": "A4.6",
+    "category": "PARTIES",
+    "start_char": 5437,
+    "end_char": 5525,
+    "text": "6. The Agency shall securely delete data belonging to DPW upon the end of the contract.",
+    "metadata": {
+      "type": "main",
+      "has_table": false,
+      "appendix": "4",
+      "original_number": "6"
+    }
+  },
+  {
+    "clause_number": "A4.7",
+    "category": "PARTIES",
+    "start_char": 5525,
+    "end_char": 5612,
+    "text": "7. The Agency suppliers shall follow and implement appropriate statutory requirements.",
+    "metadata": {
+      "type": "main",
+      "has_table": false,
+      "appendix": "4",
+      "original_number": "7"
+    }
+  },
+  {
+    "clause_number": "A4.8",
+    "category": "PARTIES",
+    "start_char": 5612,
+    "end_char": 5688,
+    "text": "8. The Agency shall ensure DPW's concerned contact is notified immediately.",
+    "metadata": {
+      "type": "main",
+      "has_table": false,
+      "appendix": "4",
+      "original_number": "8"
+    }
+  },
+  {
+    "clause_number": "A4.9",
+    "category": "PARTIES",
+    "start_char": 5688,
+    "end_char": 5760,
+    "text": "9. The Agency shall promptly investigate and mitigate the risk arising.",
+    "metadata": {
+      "type": "main",
+      "has_table": false,
+      "appendix": "4",
+      "original_number": "9"
+    }
+  },
+  {
+    "clause_number": "A4.10",
+    "category": "Uncategorized",
+    "start_char": 5760,
+    "end_char": 5844,
+    "text": "10. When required, supplier shall provide DPW with access to necessary information.",
+    "metadata": {
+      "type": "main",
+      "has_table": false,
+      "appendix": "4",
+      "original_number": "10"
+    }
+  },
+  {
+    "clause_number": "A4.11",
+    "category": "PARTIES",
+    "start_char": 5844,
+    "end_char": 5931,
+    "text": "11. The Agency shall ensure its personnel fully understand and adhere to the security.",
+    "metadata": {
+      "type": "main",
+      "has_table": false,
+      "appendix": "4",
+      "original_number": "11"
+    }
+  },
+  {
+    "clause_number": "A4.12",
+    "category": "SCOPE",
+    "start_char": 5931,
+    "end_char": 6011,
+    "text": "12. If the Agency subcontracts with other suppliers to deliver services to DPW.",
+    "metadata": {
+      "type": "main",
+      "has_table": false,
+      "appendix": "4",
+      "original_number": "12"
+    }
+  },
+  {
+    "clause_number": "A4.13",
+    "category": "PARTIES",
+    "start_char": 6011,
+    "end_char": 6100,
+    "text": "13. The Agency shall ensure that their system connecting to DPW has necessary controls.",
+    "metadata": {
+      "type": "main",
+      "has_table": false,
+      "appendix": "4",
+      "original_number": "13"
+    }
+  }
+]

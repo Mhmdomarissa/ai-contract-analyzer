@@ -1,14 +1,24 @@
 import { configureStore } from "@reduxjs/toolkit";
 
-import contractsReducer from "@/features/contracts/contractsSlice";
-import contractReducer from "@/features/contract/contractSlice";
+import comparisonReducer from "@/features/comparison/comparisonSlice";
+import batchComparisonReducer from "@/features/batchComparison/batchComparisonSlice";
+import chatReducer from "@/features/chat/chatSlice";
 import { api } from "@/services/api";
 
 export const makeStore = () =>
   configureStore({
     reducer: {
-      contracts: contractsReducer,
-      contract: contractReducer,
+      // ============================================================================
+      // TEMPORARILY COMMENTED OUT - Original features preserved for later reuse
+      // ============================================================================
+      // contracts: contractsReducer,
+      // contract: contractReducer,
+      // ============================================================================
+      
+      // New temporary features
+      comparison: comparisonReducer,
+      batchComparison: batchComparisonReducer,
+      chat: chatReducer,
       [api.reducerPath]: api.reducer,
     },
     middleware: (getDefaultMiddleware) =>

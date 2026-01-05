@@ -195,6 +195,13 @@ async def _run_clause_extraction(run_id: UUID) -> None:
         if not text:
             raise ValueError("Unable to extract text from document for clause extraction")
 
+        logger.info(
+            f"📄 Document parsing complete: "
+            f"Extracted {len(text):,} characters, "
+            f"first 200 chars: {text[:200]}..., "
+            f"last 200 chars: ...{text[-200:]}"
+        )
+
         llm = LLMService(base_url=settings.OLLAMA_URL)
         
         # Enable validation for production quality
@@ -207,10 +214,45 @@ async def _run_clause_extraction(run_id: UUID) -> None:
             enable_validation=enable_validation
         )
         
-        logger.info(f"Extracted {len(clauses_payload)} clauses")
+        logger.info(f"Extracted {len(clauses_payload)} raw clauses")
         
-        # Note: Legal-BERT validation removed - not providing useful filtering
-        # DocFormer and regex extraction are trusted directly
+        # ===== QUALITY FILTERING & SPLITTING =====
+        from app.services.clause_filters import ClauseFilter, ClauseSplitter
+        
+        # Step 1: Filter out TOC entries, stubs, and non-substantive clauses
+        clause_filter = ClauseFilter(
+            min_clause_words=10,       # Minimum 10 words for substantive content
+            min_clause_chars=40,       # Minimum 40 characters
+            max_stub_chars=180         # Maximum 180 chars for stub detection
+        )
+        
+        filter_result = clause_filter.filter_clauses(clauses_payload)
+        clauses_payload = filter_result['valid_clauses']
+        
+        logger.info(
+            f"📊 Filtering results: "
+            f"{filter_result['metrics']['valid_clauses']}/{filter_result['metrics']['total_extracted']} valid clauses | "
+            f"Removed: {filter_result['metrics']['removed_toc']} TOC, "
+            f"{filter_result['metrics']['removed_stubs']} stubs, "
+            f"{filter_result['metrics']['removed_no_content']} no-content"
+        )
+        
+        # Step 2: Split long clauses into atomic units
+        clause_splitter = ClauseSplitter(
+            max_clause_chars=2500,     # Split if > 2500 chars
+            min_split_chars=100        # Minimum 100 chars per split section
+        )
+        
+        split_clauses = []
+        split_count = 0
+        for clause in clauses_payload:
+            splits = clause_splitter.split_clause(clause)
+            split_clauses.extend(splits)
+            if len(splits) > 1:
+                split_count += 1
+        
+        clauses_payload = split_clauses
+        logger.info(f"📊 Splitting results: Split {split_count} long clauses into {len(clauses_payload)} total clauses")
         
         # Link tables to clauses
         if extracted_tables:
@@ -299,8 +341,36 @@ async def _run_clause_extraction(run_id: UUID) -> None:
                 heading=heading,
                 language=clause_data.get('language') or ('bilingual' if is_bilingual else 'en'),
                 order_index=index,
+                depth_level=clause_data.get('depth_level', 0),
+                is_override_clause=clause_data.get('is_override_clause', False),
+                # parent_clause_id will be set in a second pass after all clauses are created
             )
             session.add(clause)
+        
+        # Flush to get clause IDs, but don't commit yet
+        session.flush()
+        
+        # Second pass: Set parent_clause_id relationships
+        # Build a mapping from clause_number to clause object
+        clause_number_to_obj = {}
+        for clause_obj in session.query(Clause).filter(
+            Clause.contract_version_id == contract_version.id
+        ).all():
+            if clause_obj.clause_number:
+                clause_number_to_obj[clause_obj.clause_number] = clause_obj
+        
+        # Now set parent relationships
+        for index, clause_data in enumerate(clauses_payload):
+            parent_clause_number = clause_data.get('parent_clause_id')  # This is a string like "1" or "2.1"
+            if parent_clause_number and parent_clause_number in clause_number_to_obj:
+                # Find the clause object for this index
+                clause_obj = session.query(Clause).filter(
+                    Clause.contract_version_id == contract_version.id,
+                    Clause.order_index == index
+                ).first()
+                if clause_obj:
+                    parent_obj = clause_number_to_obj[parent_clause_number]
+                    clause_obj.parent_clause_id = parent_obj.id
         
         # Log extraction statistics
         if enable_validation:

@@ -61,225 +61,28 @@ class LLMService:
     @staticmethod
     def extract_clauses_by_structure(text: str) -> List[dict]:
         """
-        Production-ready clause extraction using proven patterns.
+        Production-ready clause extraction with state-aware parsing.
         
         Features:
-        - Generic patterns that work with any contract format
+        - State tracking (PREAMBLE → MAIN → APPENDIX modes)
         - Hierarchical structures (1., 1.1, 1.1.1)
+        - Appendix namespacing (prevents numbering collisions)
+        - Complete boundary detection (no missing clauses)
         - All-caps headings (DEFINITIONS, PAYMENT TERMS, etc.)
-        - Appendices/Schedules/Exhibits
-        - No assumptions about text format after numbers
-        
-        Based on battle-tested implementation from clause_extractor_faizan.py
+        - Hierarchical parent-child relationships
+        - Override clause detection
         
         Args:
             text: The full contract text
             
         Returns:
-            List of clause dicts with clause_number, category, start_char, end_char, text
+            List of clause dicts with clause_number, category, parent_clause_id, depth_level,
+            is_override_clause, start_char, end_char, text
         """
-        if not text or not text.strip():
-            return []
-        
-        # Normalize text
-        text = text.replace('\r\n', '\n')
-        
-        clauses = []
-        boundaries = []
-        
-        # Define flexible patterns (order matters - more specific first)
-        
-        # 1. Appendices/Schedules/Exhibits (high priority)
-        appendix_pattern = re.compile(
-            r'(?:^|\n)\s*((?:APPENDIX|ANNEX|SCHEDULE|EXHIBIT)\s+[A-Z0-9]+(?:[:\s\-]|(?=\n)))',
-            re.MULTILINE | re.IGNORECASE
-        )
-        
-        # 2. Sub-sub-clauses: "1.1.1", "2.3.4", etc.
-        sub_sub_clause_pattern = re.compile(
-            r'(?:^|\n)\s*(\d+\.\d+\.\d+)\s+(?=\S)',
-            re.MULTILINE
-        )
-        
-        # 3. Sub-clauses: "1.1", "2.3", etc.
-        sub_clause_pattern = re.compile(
-            r'(?:^|\n)\s*(\d+\.\d+)\s+(?=\S)',
-            re.MULTILINE
-        )
-        
-        # 4. Main numbered clauses: "1.", "2.", "10.", etc.
-        main_clause_pattern = re.compile(
-            r'(?:^|\n)\s*(\d+)\.\s+(?=\S)',
-            re.MULTILINE
-        )
-        
-        # 5. Article/Section with numbers: "Article 1", "Section 2.3"
-        article_section_pattern = re.compile(
-            r'(?:^|\n)\s*((?:Article|ARTICLE|Section|SECTION)\s+(?:[IVX]+|\d+)(?:\.\d+)?)\s*[:\-]?\s*(?=\S)',
-            re.MULTILINE
-        )
-        
-        # 6. All-caps headings (flexible - matches any line that's mostly uppercase)
-        heading_pattern = re.compile(
-            r'(?:^|\n)\s*([A-Z][A-Z\s&,\-]{6,80}?)\s*(?=\n|$)',
-            re.MULTILINE
-        )
-        
-        # 7. Lettered clauses: "(a)", "(b)", "(i)", "(ii)"
-        lettered_pattern = re.compile(
-            r'(?:^|\n)\s*(\([a-z]+\)|\([ivx]+\))\s+(?=\S)',
-            re.MULTILINE | re.IGNORECASE
-        )
-        
-        # 8. Roman numerals: "I.", "II.", "III."
-        roman_pattern = re.compile(
-            r'(?:^|\n)\s*([IVX]{1,6})\.\s+(?=\S)',
-            re.MULTILINE
-        )
-        
-        # Find all boundaries with their types
-        
-        # Appendices (highest priority)
-        for match in appendix_pattern.finditer(text):
-            label = match.group(1).strip()
-            boundaries.append((match.start(1), label, 'appendix'))
-            logger.debug(f"Found appendix: {label} at pos {match.start(1)}")
-        
-        # Hierarchical clauses (do sub-sub before sub, sub before main)
-        for match in sub_sub_clause_pattern.finditer(text):
-            label = match.group(1)
-            boundaries.append((match.start(1), label, 'sub_sub'))
-        
-        for match in sub_clause_pattern.finditer(text):
-            label = match.group(1)
-            # Skip if it's actually a sub-sub-clause (already handled)
-            if not any(b[1].startswith(label + '.') for b in boundaries if b[2] == 'sub_sub'):
-                boundaries.append((match.start(1), label, 'sub'))
-        
-        for match in main_clause_pattern.finditer(text):
-            label = match.group(1)
-            # Skip if it's actually a sub-clause (already handled)
-            if not any(b[1].startswith(label + '.') for b in boundaries if b[2] in ('sub', 'sub_sub')):
-                boundaries.append((match.start(1), label, 'main'))
-        
-        # Article/Section patterns
-        for match in article_section_pattern.finditer(text):
-            label = match.group(1).strip()
-            boundaries.append((match.start(1), label, 'article_section'))
-        
-        # All-caps headings
-        for match in heading_pattern.finditer(text):
-            heading = match.group(1).strip()
-            # Skip if it's actually an appendix (handled above)
-            heading_upper = heading.upper()
-            if any(keyword in heading_upper for keyword in ['APPENDIX', 'ANNEX', 'SCHEDULE', 'EXHIBIT']):
-                continue
-            # Skip common preamble words
-            if any(word in heading_upper for word in ['WITNESSETH', 'RECITALS', 'WHEREAS', 'NOW THEREFORE']):
-                continue
-            # Verify it's mostly uppercase
-            if LLMService._is_all_caps(heading):
-                boundaries.append((match.start(1), heading, 'heading'))
-        
-        # Lettered clauses
-        for match in lettered_pattern.finditer(text):
-            label = match.group(1)
-            boundaries.append((match.start(1), label, 'lettered'))
-        
-        # Roman numerals
-        for match in roman_pattern.finditer(text):
-            label = match.group(1)
-            boundaries.append((match.start(1), label, 'roman'))
-        
-        # Sort by position and remove duplicates at same position
-        boundaries.sort(key=lambda x: x[0])
-        unique_boundaries = []
-        seen_positions = set()
-        for pos, label, btype in boundaries:
-            # Allow boundaries at same position only if different types
-            key = (pos // 5, btype)  # Group positions within 5 chars
-            if key not in seen_positions:
-                unique_boundaries.append((pos, label, btype))
-                seen_positions.add(key)
-        
-        boundaries = unique_boundaries
-        
-        logger.info(f"Found {len(boundaries)} clause boundaries")
-        
-        if not boundaries:
-            # No structure detected - return entire document
-            logger.warning("No clause boundaries found, returning entire document as single clause")
-            return [{
-                'clause_number': '0',
-                'category': 'Full Document',
-                'start_char': 0,
-                'end_char': len(text),
-                'text': text.strip(),
-                'metadata': {'type': 'unstructured'}
-            }]
-        
-        # Extract preamble (text before first boundary)
-        first_boundary_pos = boundaries[0][0]
-        if first_boundary_pos > 50:
-            preamble_text = text[:first_boundary_pos].strip()
-            if preamble_text and len(preamble_text) > 20:
-                clauses.append({
-                    'clause_number': 'Preamble',
-                    'category': 'Preamble and Parties',
-                    'start_char': 0,
-                    'end_char': first_boundary_pos,
-                    'text': preamble_text,
-                    'metadata': {'type': 'preamble'}
-                })
-        
-        # Extract each clause
-        for i, (boundary_pos, boundary_label, boundary_type) in enumerate(boundaries):
-            # Determine end position
-            if i < len(boundaries) - 1:
-                end_pos = boundaries[i + 1][0]
-            else:
-                end_pos = len(text)
-            
-            # Extract clause text
-            clause_text = text[boundary_pos:end_pos].strip()
-            
-            # Skip if too short (likely a false positive)
-            if len(clause_text) < 20:
-                logger.debug(f"Skipping short clause: {boundary_label}")
-                continue
-            
-            # Extract title from the clause text (first line or first 100 chars)
-            title_match = re.search(r'^[^\n]{1,100}', clause_text)
-            if title_match:
-                title = title_match.group(0).strip()
-                # Clean up title - remove the number prefix
-                title = re.sub(r'^\s*(?:\d+\.)+\s*', '', title)
-                title = re.sub(r'^(?:APPENDIX|SCHEDULE|EXHIBIT|ANNEX)\s+[A-Z0-9]+\s*[:\-]?\s*', '', title, flags=re.IGNORECASE)
-            else:
-                title = boundary_label
-            
-            # Categorize clause
-            category = LLMService._categorize_clause(clause_text, boundary_label)
-            
-            # Detect tables
-            has_table = LLMService._detect_table_in_text(clause_text)
-            
-            clauses.append({
-                'clause_number': boundary_label,
-                'category': category if category != 'Uncategorized' else title[:50],
-                'start_char': boundary_pos,
-                'end_char': end_pos,
-                'text': clause_text,
-                'metadata': {
-                    'type': boundary_type,
-                    'has_table': has_table,
-                }
-            })
-            
-            logger.debug(f"Extracted clause: {boundary_label} ({category}) - {len(clause_text)} chars")
-        
-        logger.info(f"Successfully extracted {len(clauses)} clauses")
-        return clauses
+        # Use hierarchical extractor with parent-child relationships and override detection
+        from app.services.hierarchical_clause_extractor import HierarchicalClauseExtractor
+        extractor = HierarchicalClauseExtractor()
+        return extractor.extract_clauses(text)
     
     @staticmethod
     def _is_all_caps(text: str) -> bool:
@@ -297,50 +100,51 @@ class LLMService:
         uppercase = sum(1 for c in letters if c.isupper())
         return uppercase / len(letters) > 0.8  # At least 80% uppercase
     
+    
     @staticmethod
     def _categorize_clause(text: str, clause_number: str) -> str:
-        """Categorize clause based on content keywords."""
+        """
+        Categorize clause based on content keywords.
+        
+        Priority order: Check specific keywords first, generic keywords last.
+        This prevents over-categorization (e.g., payment clauses mentioning "client" 
+        being wrongly categorized as PARTIES instead of PAYMENT).
+        """
         text_upper = text.upper()
         
-        # Common clause categories with flexible keyword matching
-        categories = {
-            'DEFINITIONS': ['DEFINITION', 'DEFINITIONS', 'INTERPRETATION', 'MEANING'],
-            'PARTIES': ['PARTIES', 'PARTY', 'CLIENT', 'AGENCY', 'CONTRACTOR', 'VENDOR', 'SUPPLIER'],
-            'TERM': ['TERM', 'DURATION', 'EFFECTIVE DATE', 'COMMENCEMENT', 'SOLE AGREEMENT', 'PERIOD'],
-            'SCOPE': ['SCOPE', 'SERVICES', 'WORK', 'DELIVERABLES', 'PROVISION', 'OBLIGATIONS'],
-            'PAYMENT': ['PAYMENT', 'FEE', 'PRICE', 'COMPENSATION', 'INVOICE', 'RATE', 'CHARGEABLE', 'COST'],
-            'TERMINATION': ['TERMINATION', 'EXPIRATION', 'CANCELLATION', 'END OF AGREEMENT'],
-            'CONFIDENTIALITY': ['CONFIDENTIAL', 'NON-DISCLOSURE', 'PRIVACY', 'PROPRIETARY'],
-            'LIABILITY': ['LIABILITY', 'INDEMNIFICATION', 'DAMAGES', 'WARRANTY', 'WARRANTIES'],
-            'DISPUTE': ['DISPUTE', 'ARBITRATION', 'GOVERNING LAW', 'JURISDICTION', 'LITIGATION'],
-            'GENERAL': ['ENTIRE AGREEMENT', 'AMENDMENT', 'NOTICES', 'ASSIGNMENT', 'FORCE MAJEURE', 'SEVERABILITY'],
+        # HIGH PRIORITY: Very specific categories (check first)
+        specific_categories = {
             'APPENDIX': ['APPENDIX', 'ANNEX', 'SCHEDULE', 'EXHIBIT'],
+            'DEFINITIONS': ['DEFINITION', 'DEFINITIONS', 'INTERPRETATION', 'MEANING'],
+            'PAYMENT': ['PAYMENT', 'FEE', 'PRICE', 'COMPENSATION', 'INVOICE', 'RATE', 'CHARGEABLE', 'COST', 'TAX', 'VAT', 'DEDUCTION'],
+            'CONFIDENTIALITY': ['CONFIDENTIAL', 'NON-DISCLOSURE', 'PRIVACY', 'PROPRIETARY', 'SECRET'],
+            'TERMINATION': ['TERMINATION', 'EXPIRATION', 'CANCELLATION', 'END OF AGREEMENT', 'TERMINATE'],
+            'LIABILITY': ['LIABILITY', 'INDEMNIFICATION', 'DAMAGES', 'WARRANTY', 'WARRANTIES', 'LIABLE', 'INDEMNIFY'],
+            'DISPUTE': ['DISPUTE', 'ARBITRATION', 'GOVERNING LAW', 'JURISDICTION', 'LITIGATION', 'COURT'],
         }
         
-        for category, keywords in categories.items():
-            if any(keyword in text_upper[:200] for keyword in keywords):  # Check first 200 chars
-                return category
+        # MEDIUM PRIORITY: Moderately specific categories
+        moderate_categories = {
+            'TERM': ['TERM', 'DURATION', 'EFFECTIVE DATE', 'COMMENCEMENT', 'SOLE AGREEMENT', 'PERIOD'],
+            'SCOPE': ['SCOPE', 'SERVICES', 'WORK', 'DELIVERABLES', 'PROVISION', 'OBLIGATIONS'],
+        }
+        
+        # LOW PRIORITY: Generic categories (check last to avoid false positives)
+        generic_categories = {
+            'PARTIES': ['PARTIES', 'PARTY', 'CLIENT', 'AGENCY', 'CONTRACTOR', 'VENDOR', 'SUPPLIER'],
+            'GENERAL': ['ENTIRE AGREEMENT', 'AMENDMENT', 'NOTICES', 'ASSIGNMENT', 'FORCE MAJEURE', 'SEVERABILITY'],
+        }
+        
+        # Check in priority order: specific → moderate → generic
+        for categories in [specific_categories, moderate_categories, generic_categories]:
+            for category, keywords in categories.items():
+                if any(keyword in text_upper[:200] for keyword in keywords):  # Check first 200 chars
+                    return category
         
         return 'Uncategorized'
     
     @staticmethod
     def _detect_table_in_text(text: str) -> bool:
-        """Detect if text contains table-like structures."""
-        # Look for common table indicators
-        table_indicators = [
-            r'[│┤├┼┴┬┌┐└┘─]',  # Box drawing characters
-            r'\|\s+\w+\s+\|',  # Pipe-separated columns
-            r'[-─]{3,}',  # Horizontal lines
-            r'(?:\t|  {2,})\w+(?:\t|  {2,})\w+',  # Tab or multi-space separated columns
-        ]
-        
-        for pattern in table_indicators:
-            if re.search(pattern, text):
-                return True
-        return False
-    
-    @staticmethod
-    def _extract_hierarchical_subclauses(clause_text: str, parent_number: str, parent_start_pos: int) -> List[dict]:
         """Detect if text contains table-like structures."""
         # Look for common table indicators
         table_indicators = [

@@ -239,14 +239,6 @@ const ClauseTreeNode: React.FC<ClauseTreeNodeProps> = ({
   const validation = node.validation;
   const metadata = node.metadata;
 
-  const qualityColor = validation
-    ? validation.quality_score >= 0.8
-      ? 'text-green-600'
-      : validation.quality_score >= 0.5
-      ? 'text-yellow-600'
-      : 'text-red-600'
-    : 'text-gray-400';
-
   return (
     <div className="clause-node">
       <div

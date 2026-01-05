@@ -59,6 +59,14 @@ class Clause(Base):
     number_normalized: Mapped[str | None] = mapped_column(String(length=128))
     analysis_results: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     analysis_status: Mapped[str | None] = mapped_column(String(length=32), nullable=True)
+    
+    # Hierarchy fields
+    parent_clause_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("clauses.id", ondelete="SET NULL"), nullable=True
+    )
+    depth_level: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    is_override_clause: Mapped[bool] = mapped_column(default=False, nullable=False)
+    
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -69,6 +77,21 @@ class Clause(Base):
     clause_group: Mapped[ClauseGroup | None] = relationship(
         "ClauseGroup", back_populates="clauses"
     )
+    
+    # Self-referencing relationship for hierarchy
+    parent_clause: Mapped["Clause | None"] = relationship(
+        "Clause",
+        remote_side=[id],
+        back_populates="child_clauses",
+        foreign_keys=[parent_clause_id]
+    )
+    child_clauses: Mapped[list["Clause"]] = relationship(
+        "Clause",
+        back_populates="parent_clause",
+        foreign_keys=[parent_clause_id],
+        cascade="all, delete-orphan"
+    )
+    
     left_conflicts: Mapped[list["Conflict"]] = relationship(
         "Conflict",
         back_populates="left_clause",

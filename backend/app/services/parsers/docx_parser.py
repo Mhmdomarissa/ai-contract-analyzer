@@ -56,18 +56,27 @@ class AdvancedDocxParser:
         Returns:
             Full extracted text
         """
+        logger.info(f"🔍 Starting DOCX parsing: {file_path}")
+        
         # Use docx2python if available and numbering preservation is enabled
         if self.preserve_numbering and file_path:
             try:
                 text = self._parse_with_docx2python(file_path)
                 if text:
-                    logger.info("Successfully parsed DOCX with numbered list preservation")
+                    logger.info(
+                        f"✅ docx2python extraction complete: "
+                        f"{len(text)} chars, last 100 chars: ...{text[-100:]}"
+                    )
                     return text
             except Exception as e:
                 logger.warning(f"docx2python parsing failed, falling back to python-docx: {e}")
         
         # Fall back to standard parsing
         sections, tables = self._parse_with_structure(file_path, binary, from_page, to_page)
+        
+        logger.info(
+            f"📄 Extracted {len(sections)} sections, {len(tables)} tables from DOCX"
+        )
         
         # Combine sections and tables
         text_parts = []
@@ -78,7 +87,15 @@ class AdvancedDocxParser:
         for table in tables:
             text_parts.extend(table)
         
-        return "\n\n".join(text_parts)
+        full_text = "\n\n".join(text_parts)
+        
+        logger.info(
+            f"✅ DOCX extraction complete: "
+            f"{len(full_text)} chars total, "
+            f"last 200 chars: ...{full_text[-200:] if len(full_text) > 200 else full_text}"
+        )
+        
+        return full_text
     
     def _parse_with_docx2python(self, file_path: str) -> str:
         """

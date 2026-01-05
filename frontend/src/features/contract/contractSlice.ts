@@ -113,6 +113,7 @@ interface ContractState {
   clauses: Clause[];
   conflicts: Conflict[];
   clauseJob: AnalysisRun | null;
+  conflictJob: AnalysisRun | null;
   status: 'idle' | 'loading' | 'succeeded' | 'failed';
   error: string | null;
   currentStep: 'upload' | 'extract' | 'detect' | 'explain' | 'complete';
@@ -124,6 +125,7 @@ const initialState: ContractState = {
   clauses: [],
   conflicts: [],
   clauseJob: null,
+  conflictJob: null,
   status: 'idle',
   error: null,
   currentStep: 'upload',
@@ -149,6 +151,7 @@ const formatError = (err: unknown): string => {
 type RejectValue = { rejectValue: string };
 
 const updateClauseJob = createAction<AnalysisRun | null>('contract/updateClauseJob');
+const updateConflictJob = createAction<AnalysisRun | null>('contract/updateConflictJob');
 
 const pollClauseExtraction = async (
   contractId: string,
@@ -188,6 +191,68 @@ const pollClauseExtraction = async (
   }
 
   throw new Error('Clause extraction timed out');
+};
+
+const pollConflictDetection = async (
+  contractId: string,
+  runId: string,
+  dispatch: (action: unknown) => unknown,
+  signal: AbortSignal
+): Promise<Conflict[]> => {
+  // Conflict detection can take 30-45 minutes for large contracts
+  // Poll for up to 60 minutes with 5 second intervals
+  const maxAttempts = 720; // 720 * 5s = 60 minutes
+  
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    if (signal.aborted) {
+      throw new Error('Conflict detection aborted');
+    }
+
+    const statusResponse = await fetch(
+      `${API_BASE_URL}/contracts/${contractId}/detect-conflicts/${runId}`,
+      { signal }
+    );
+    if (!statusResponse.ok) {
+      throw new Error('Failed to fetch conflict detection status');
+    }
+
+    const job = (await statusResponse.json()) as {
+      run_id: string;
+      status: string;
+      error_message?: string;
+      conflicts?: Conflict[];
+      conflicts_count?: number;
+      started_at?: string;
+      finished_at?: string;
+    };
+    
+    // Create AnalysisRun object for UI updates
+    const runUpdate: AnalysisRun = {
+      id: job.run_id,
+      status: job.status,
+      started_at: job.started_at || new Date().toISOString(),
+      finished_at: job.finished_at,
+      error_message: job.error_message,
+    } as AnalysisRun;
+    
+    dispatch(updateConflictJob(runUpdate));
+
+    if (job.status === 'COMPLETED') {
+      return job.conflicts ?? [];
+    }
+
+    if (job.status === 'FAILED') {
+      throw new Error(job.error_message || 'Conflict detection failed');
+    }
+
+    await delay(CLAUSE_POLL_INTERVAL_MS);
+
+    if (signal.aborted) {
+      throw new Error('Conflict detection aborted');
+    }
+  }
+
+  throw new Error('Conflict detection timed out after 60 minutes');
 };
 
 // Async Thunks
@@ -249,18 +314,22 @@ export const detectConflicts = createAsyncThunk<
   'contract/detectConflicts',
   async (contractId, { rejectWithValue, signal, dispatch }) => {
     try {
-      // Conflict detection is now synchronous - all clauses are sent to LLM at once
-      // The backend returns conflicts immediately after analysis
+      // Start async conflict detection
       const response = await fetch(`${API_BASE_URL}/contracts/${contractId}/detect-conflicts`, {
         method: 'POST',
         signal,
       });
       if (!response.ok) {
-        throw new Error('Conflict detection failed');
+        throw new Error('Failed to start conflict detection');
       }
-      const conflicts = (await response.json()) as Conflict[];
       
-      // Fetch updated clauses (in case they were modified)
+      const run = (await response.json()) as AnalysisRun;
+      dispatch(updateConflictJob(run));
+      
+      // Poll for completion (5-10 minutes expected)
+      const conflicts = await pollConflictDetection(contractId, run.id, dispatch, signal);
+      
+      // Fetch updated clauses
       const clausesResponse = await fetch(`${API_BASE_URL}/contracts/${contractId}/clauses`, {
         method: 'GET',
         signal,
@@ -269,22 +338,6 @@ export const detectConflicts = createAsyncThunk<
         throw new Error('Failed to fetch clauses');
       }
       const clauses = (await clausesResponse.json()) as Clause[];
-      
-      // Update Redux state with latest clauses
-      dispatch({
-        type: 'contract/updateClauses',
-        payload: clauses,
-      });
-      
-      // Fetch conflicts separately to ensure we have the latest
-      const conflictsResponse = await fetch(`${API_BASE_URL}/contracts/${contractId}/conflicts`, {
-        method: 'GET',
-        signal,
-      });
-      if (conflictsResponse.ok) {
-        const latestConflicts = (await conflictsResponse.json()) as Conflict[];
-        return { conflicts: latestConflicts, clauses };
-      }
       
       return { conflicts, clauses };
     } catch (err) {
@@ -333,6 +386,9 @@ const contractSlice = createSlice({
   extraReducers: (builder) => {
     builder.addCase(updateClauseJob, (state, action) => {
       state.clauseJob = action.payload;
+    });
+    builder.addCase(updateConflictJob, (state, action) => {
+      state.conflictJob = action.payload;
     });
 
     // Upload

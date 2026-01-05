@@ -6,7 +6,7 @@ from uuid import UUID
 
 import logging
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.v1.dependencies import get_db
@@ -319,216 +319,117 @@ async def list_conflicts(
     return [ConflictRead.model_validate(c, from_attributes=True) for c in conflicts]
 
 
-@router.post("/{contract_id}/detect-conflicts", response_model=list[ConflictRead])
-async def detect_conflicts(
+
+@router.post("/{contract_id}/detect-conflicts", response_model=AnalysisRunRead, status_code=202)
+async def request_conflict_detection(
     contract_id: UUID,
+    strategy: str = Query(default="fast_accurate", description="Detection strategy: fast_accurate (recommended, 5-10min) or accurate (thorough, 20-40min)"),
     db: Session = Depends(get_db)
 ):
-    import sys
-    print(f"=== DETECT CONFLICTS ENDPOINT CALLED === contract_id: {contract_id}", file=sys.stderr, flush=True)
-    logger.info(f"Detect conflicts endpoint called for contract_id: {contract_id}")
-    logger.info(f"Request received at: {__import__('datetime').datetime.now()}")
+    """
+    Start asynchronous conflict detection. Returns immediately with a run_id to poll for status.
     
-    # Check if analysis is already in progress - prevent duplicate calls
-    try:
-        contract, latest_version = contract_service.get_contract_with_latest_version(db, contract_id)
-        if contract and latest_version:
-            clauses = contract_service.list_clauses_for_version(db, latest_version.id)
-            if clauses:
-                # Check if any clause is currently being analyzed
-                running_count = sum(1 for c in clauses if c.analysis_status == 'running')
-                if running_count > 0:
-                    logger.warning(f"Analysis already in progress for contract {contract_id}: {running_count} clauses running")
-                    print(f"WARNING: Analysis already in progress, returning existing conflicts", file=sys.stderr, flush=True)
-                    # Return existing conflicts instead of starting new analysis
-                    existing_conflicts = db.query(Conflict).filter(
-                        Conflict.contract_version_id == latest_version.id
-                    ).all()
-                    return existing_conflicts
-    except Exception as e:
-        logger.warning(f"Error checking for existing analysis: {e}, continuing with new analysis")
+    Detection strategies:
+    - fast_accurate (default): 2-stage validation, 5-10 minutes, best balance
+    - accurate: 5-stage validation, 20-40 minutes, very thorough
     
-    try:
-        contract, latest_version = contract_service.get_contract_with_latest_version(db, contract_id)
-        logger.info(f"Contract lookup: contract={contract is not None}, version={latest_version is not None}")
-        print(f"DEBUG: Contract lookup: contract={contract is not None}, version={latest_version is not None}", file=sys.stderr, flush=True)
-    except Exception as e:
-        logger.error(f"Error getting contract: {e}", exc_info=True)
-        print(f"ERROR: Error getting contract: {e}", file=sys.stderr, flush=True)
-        raise
+    Use GET /{contract_id}/detect-conflicts/{run_id} to check status.
+    """
+    logger.info(f"🚀 Request conflict detection for contract_id: {contract_id}, strategy: {strategy}")
     
+    # Get contract and version
+    contract, latest_version = contract_service.get_contract_with_latest_version(db, contract_id)
     if not contract:
-        logger.error(f"Contract not found: {contract_id}")
         raise HTTPException(status_code=404, detail="Contract not found")
     if not latest_version:
-        logger.error(f"No contract version found for contract: {contract_id}")
         raise HTTPException(status_code=404, detail="No contract version found")
-
-    try:
-        clauses = contract_service.list_clauses_for_version(db, latest_version.id)
-        logger.info(f"Retrieved {len(clauses) if clauses else 0} clauses from database")
-        print(f"DEBUG: Retrieved {len(clauses) if clauses else 0} clauses from database", file=sys.stderr, flush=True)
-    except Exception as e:
-        logger.error(f"Error retrieving clauses: {e}", exc_info=True)
-        print(f"ERROR: Error retrieving clauses: {e}", file=sys.stderr, flush=True)
-        raise
     
-    if not clauses:
-        logger.warning(f"No clauses found for contract version: {latest_version.id}")
-        raise HTTPException(status_code=400, detail="No clauses found. Run extraction first.")
-        
-    logger.info(f"Found {len(clauses)} clauses to analyze for conflicts")
-    print(f"DEBUG: Found {len(clauses)} clauses", file=sys.stderr, flush=True)
-    
-    # Initialize LLM service
-    try:
-        llm = LLMService(base_url=settings.OLLAMA_URL)
-        logger.info(f"Initialized LLMService for conflict detection")
-        print(f"DEBUG: Created LLMService instance", file=sys.stderr, flush=True)
-    except Exception as e:
-        logger.error(f"Error creating LLMService: {e}", exc_info=True)
-        print(f"ERROR: Error creating LLMService: {e}", file=sys.stderr, flush=True)
-        raise
-    
-    # Prepare clauses data for conflict detection
-    # Send full clause text with all context for comprehensive analysis
-    try:
-        clauses_data = [
-            {
-                "id": str(c.id),
-                "text": c.text,  # Full text - never truncated
-                "clause_number": c.clause_number or f"#{c.order_index}",
-                "heading": c.heading
-            }
-            for c in clauses
-        ]
-        logger.info(f"Prepared {len(clauses_data)} clauses for conflict detection")
-        logger.info(f"Total text length: {sum(len(c.get('text', '')) for c in clauses_data)} characters")
-        print(f"DEBUG: Prepared {len(clauses_data)} clauses for conflict detection", file=sys.stderr, flush=True)
-    except Exception as e:
-        logger.error(f"Error preparing clauses for conflict detection: {e}", exc_info=True)
-        print(f"ERROR: Error preparing clauses for conflict detection: {e}", file=sys.stderr, flush=True)
-        raise
-    
-    # Analyze all clauses together for conflicts
-    # The LLM will understand the entire contract context (parties, contract type, jurisdiction, etc.)
-    # and then identify conflicts between clauses
-    logger.info("=" * 80)
-    logger.info("Starting comprehensive conflict analysis...")
-    logger.info("LLM is analyzing all clauses contextually to understand the contract and identify conflicts")
-    logger.info("=" * 80)
-    
-    # Update a special status to indicate we're in contextual analysis phase
-    # We'll use the contract's metadata or a special clause to track this
-    # For now, just log it - the UI will poll and see all clauses are done, then conflicts appear
-    
-    # Call LLM to identify conflicts - it will understand the full context and check all clauses
-    conflicts_data = await llm.identify_conflicts(clauses_data)
-    logger.info(f"Conflict analysis completed: Found {len(conflicts_data) if conflicts_data else 0} conflicts between clauses")
-    # Debug: log raw LLM response to help diagnose mapping issues
-    try:
-        logger.info("LLM identify_conflicts returned %s items", len(conflicts_data) if conflicts_data is not None else 0)
-        if conflicts_data:
-            # Log a small sample to avoid huge logs
-            logger.info("LLM identify_conflicts sample[0]: %s", conflicts_data[0])
-    except Exception:
-        logger.exception("Failed to log LLM identify_conflicts response")
-
-    # Temporary stdout print for debugging (ensures logs appear in container output)
-    try:
-        print("LLM_IDENTIFY_CONFlicts_RESULT_COUNT:", len(conflicts_data) if conflicts_data is not None else 0)
-        if conflicts_data:
-            print("LLM_IDENTIFY_CONFlicts_SAMPLE:", conflicts_data[0])
-    except Exception as e:
-        print("Failed to print LLM identify_conflicts result:", e)
-    
-    # Create Analysis Run if not exists (or new one)
-    run = AnalysisRun(
-        contract_version_id=latest_version.id,
-        type="CONFLICT_DETECTION",
-        model_name="qwen2.5:32b",
-        status="COMPLETED"
-    )
-    db.add(run)
-    db.flush()
-    
-    # Save Conflicts
-    clause_lookup = {str(c.id): c for c in clauses}
-    saved_conflicts = []
-    logger.info(f"Processing {len(conflicts_data)} conflicts from LLM")
-    for idx, conf in enumerate(conflicts_data):
-        clause_id_1 = conf.get("clause_id_1")
-        clause_id_2 = conf.get("clause_id_2")
-        
-        logger.info(f"Processing conflict {idx + 1}: clause_id_1={clause_id_1}, clause_id_2={clause_id_2}")
-
-        clause_1 = clause_lookup.get(str(clause_id_1))
-        clause_2 = clause_lookup.get(str(clause_id_2))
-
-        if not clause_1 or not clause_2:
-            logger.warning(
-                "Skipping conflict because referenced clauses were not found: %s, %s",
-                clause_id_1,
-                clause_id_2,
-            )
-            continue
-        
-        # Skip conflicts where both clauses are the same
-        if clause_1.id == clause_2.id:
-            logger.warning(
-                "Skipping conflict between same clause: %s",
-                clause_id_1,
-            )
-            continue
-        
-        # Skip conflicts involving Gap clauses
-        if clause_1.clause_number == 'Gap' or clause_2.clause_number == 'Gap':
-            logger.warning(
-                "Skipping conflict involving Gap clause: %s, %s",
-                clause_1.clause_number,
-                clause_2.clause_number,
-            )
-            continue
-
-        def _label(clause: Clause) -> str:
-            if clause.clause_number:
-                return clause.clause_number
-            return f"#{clause.order_index}"
-
-        # Use LLM's detailed description, or fallback to basic summary
-        llm_description = conf.get("description", "")
-        if llm_description:
-            summary = llm_description
-        else:
-            summary = (
-                f"Conflict between Clause {_label(clause_1)} "
-                f"and Clause {_label(clause_2)}"
-            )
-
-        conflict = Conflict(
-            analysis_run_id=run.id,
-            contract_version_id=latest_version.id,
-            severity=conf.get("severity", "UNKNOWN"),
-            explanation=conf.get("suggested_resolution") or "",  # Store suggested resolution in explanation field
-            summary=summary,
-            left_clause_id=clause_1.id,
-            right_clause_id=clause_2.id,
+    # Check if there's already a pending/running detection
+    run = (
+        db.query(AnalysisRun)
+        .filter(
+            AnalysisRun.contract_version_id == latest_version.id,
+            AnalysisRun.type == "CONFLICT_DETECTION",
+            AnalysisRun.status.in_(["PENDING", "RUNNING"]),
         )
-        db.add(conflict)
-        saved_conflicts.append(conflict)
-        logger.info(f"✓ Saved conflict {idx + 1}: {_label(clause_1)} vs {_label(clause_2)}")
+        .first()
+    )
+    
+    if not run:
+        # Create new analysis run
+        run = contract_service.create_analysis_run_for_version(
+            db,
+            contract_version_id=latest_version.id,
+            run_type="CONFLICT_DETECTION",
+            model_name="qwen2.5:32b",
+        )
+        db.commit()
+        db.refresh(run)
         
-    logger.info(f"Committing {len(saved_conflicts)} conflicts to database")
-    db.commit()
-    logger.info(f"✓ Successfully saved {len(saved_conflicts)} conflicts")
+        # Enqueue the Celery task
+        from app.tasks.conflict_analysis import analyze_contract_conflicts
+        analyze_contract_conflicts.delay(str(run.id), strategy)
+        logger.info(f"📤 Queued conflict detection task for run_id={run.id}")
+    else:
+        logger.info(f"♻️ Returning existing run_id={run.id}")
+        db.refresh(run)
     
-    # Reload conflicts with clause relationships for response
-    conflict_ids = [c.id for c in saved_conflicts]
-    conflicts_with_clauses = db.query(Conflict).filter(
-        Conflict.id.in_(conflict_ids)
-    ).options(
-        joinedload(Conflict.left_clause),
-        joinedload(Conflict.right_clause)
-    ).all()
+    return AnalysisRunRead.model_validate(run, from_attributes=True)
+
+
+@router.get("/{contract_id}/detect-conflicts/{run_id}", response_model=dict)
+async def get_conflict_detection_status(
+    contract_id: UUID,
+    run_id: UUID,
+    db: Session = Depends(get_db),
+):
+    """
+    Check the status of a conflict detection job.
     
-    return conflicts_with_clauses
+    Returns:
+    - status: PENDING, RUNNING, COMPLETED, or FAILED
+    - conflicts: list of detected conflicts (when COMPLETED)
+    - error_message: error details (when FAILED)
+    """
+    run = (
+        db.query(AnalysisRun)
+        .join(ContractVersion, AnalysisRun.contract_version_id == ContractVersion.id)
+        .filter(
+            AnalysisRun.id == run_id,
+            ContractVersion.contract_id == contract_id,
+            AnalysisRun.type == "CONFLICT_DETECTION",
+        )
+        .first()
+    )
+    
+    if not run:
+        raise HTTPException(status_code=404, detail="Conflict detection job not found")
+    
+    response = {
+        "run_id": str(run.id),
+        "status": run.status,
+        "started_at": run.started_at.isoformat() if run.started_at else None,
+        "finished_at": run.finished_at.isoformat() if run.finished_at else None,
+    }
+    
+    if run.status == "FAILED":
+        response["error_message"] = run.error_message
+    
+    if run.status == "COMPLETED":
+        # Fetch conflicts
+        from app.models.conflict import Conflict
+        from sqlalchemy.orm import joinedload
+        
+        conflicts = db.query(Conflict).filter(
+            Conflict.contract_version_id == run.contract_version_id,
+            Conflict.score >= 0.85
+        ).options(
+            joinedload(Conflict.left_clause),
+            joinedload(Conflict.right_clause)
+        ).all()
+        
+        response["conflicts"] = [ConflictRead.model_validate(c, from_attributes=True) for c in conflicts]
+        response["conflicts_count"] = len(conflicts)
+    
+    return response
+
