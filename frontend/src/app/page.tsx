@@ -4,8 +4,10 @@
  * Main Testing Page
  * 
  * Includes:
+ * - Upload & Extract (contract parsing and clause extraction)
  * - Single clause comparison (A vs B)
  * - Batch clause comparison (1 → N)
+ * - All-vs-all comparison (N → N)
  * - Floating chat button for direct Qwen2 interaction
  */
 
@@ -25,9 +27,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
-import { Loader2, GitCompare, Sparkles, RotateCcw, Trash2, ListChecks, Network } from 'lucide-react';
+import { Loader2, GitCompare, Sparkles, RotateCcw, Trash2, ListChecks, Network, Upload } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import UploadAndExtract from '@/components/UploadAndExtract';
 import BatchComparison from '@/components/BatchComparison';
 import AllVsAllComparison from '@/components/AllVsAllComparison';
 import FloatingChatButton from '@/components/FloatingChatButton';
@@ -38,7 +41,7 @@ export default function TestingPage() {
     (state: RootState) => state.comparison
   );
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState('single');
+  const [activeTab, setActiveTab] = useState('upload');
 
   const handleCompare = async () => {
     if (!clauseA.trim() || !clauseB.trim()) {
@@ -95,12 +98,16 @@ export default function TestingPage() {
             Contract Clause Testing Lab
           </h1>
           <p className="text-muted-foreground">
-            Advanced testing environment for clause comparison and AI analysis powered by Qwen2.5:32b
+            Complete workflow: Upload contracts, extract clauses, and run AI-powered analysis with Qwen2.5:32b
           </p>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full max-w-3xl grid-cols-3">
+          <TabsList className="grid w-full max-w-4xl grid-cols-4">
+            <TabsTrigger value="upload" className="flex items-center gap-2">
+              <Upload className="w-4 h-4" />
+              Upload & Extract
+            </TabsTrigger>
             <TabsTrigger value="single" className="flex items-center gap-2">
               <GitCompare className="w-4 h-4" />
               Single (A vs B)
@@ -114,6 +121,11 @@ export default function TestingPage() {
               All vs All (N → N)
             </TabsTrigger>
           </TabsList>
+
+          {/* Upload & Extract Tab */}
+          <TabsContent value="upload" className="mt-6">
+            <UploadAndExtract />
+          </TabsContent>
 
           {/* Single Comparison Tab */}
           <TabsContent value="single" className="space-y-8 mt-6">

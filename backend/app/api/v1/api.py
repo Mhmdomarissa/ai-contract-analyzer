@@ -1,7 +1,8 @@
 """
-API Router for Testing Lab - Clause Comparison & Analysis
+API Router for Testing Lab - Clause Comparison & Analysis + Contract Upload
 
 This module defines the API routes for the Contract Clause Testing Lab:
+- Contract upload and clause extraction (with SSE progress)
 - 1-to-1 clause comparison
 - 1-to-N batch comparison
 - N-to-N all-vs-all comparison (with self-check)
@@ -9,9 +10,12 @@ This module defines the API routes for the Contract Clause Testing Lab:
 """
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import compare, batch_compare, chat, all_vs_all_compare
+from app.api.v1.endpoints import compare, batch_compare, chat, all_vs_all_compare, upload
 
 api_router = APIRouter()
+
+# Contract upload & extraction
+api_router.include_router(upload.router, prefix="/contracts", tags=["upload-extract"])
 
 # Testing Lab endpoints
 api_router.include_router(compare.router, prefix="/compare", tags=["1-to-1-compare"])

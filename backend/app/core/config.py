@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "Contract Review System"
     DATABASE_URL: str
     OLLAMA_URL: str = "http://51.112.105.60:11434"
+    OLLAMA_MODEL: str = "qwen2.5:32b"
     CELERY_BROKER_URL: str = "redis://redis:6379/0"
     CELERY_RESULT_BACKEND: str = "redis://redis:6379/1"
     

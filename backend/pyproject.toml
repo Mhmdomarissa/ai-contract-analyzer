@@ -24,6 +24,7 @@ dependencies = [
   "python-multipart>=0.0.9",
   "pypdf>=4.0.0",
   "httpx>=0.27.0",
+  "requests>=2.31.0",
   "tenacity>=8.2.0",
   "python-docx>=1.1.0",
   "docx2python>=2.0.0",  # Preserves numbered lists in DOCX (python-docx loses them)

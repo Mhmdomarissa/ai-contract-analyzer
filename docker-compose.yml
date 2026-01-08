@@ -33,7 +33,7 @@ services:
       dockerfile: Dockerfile
     env_file:
       - frontend/.env.local
-    command: sh -c "pnpm install && NODE_ENV=production pnpm build && cp -r public .next/standalone/ && cp -r .next/static .next/standalone/.next/ && PORT=3000 HOSTNAME=0.0.0.0 node .next/standalone/server.js"
+    command: sh -c "pnpm install && pnpm dev"
     volumes:
       - ./frontend:/app
     expose:
