@@ -1,3 +1,12 @@
+/**
+ * Redux Store Configuration - Testing Lab
+ * 
+ * Contains state management for:
+ * - 1-to-1 clause comparison
+ * - 1-to-N batch comparison  
+ * - N-to-N all-vs-all comparison
+ * - AI chatbot
+ */
 import { configureStore } from "@reduxjs/toolkit";
 
 import comparisonReducer from "@/features/comparison/comparisonSlice";
@@ -9,14 +18,6 @@ import { api } from "@/services/api";
 export const makeStore = () =>
   configureStore({
     reducer: {
-      // ============================================================================
-      // TEMPORARILY COMMENTED OUT - Original features preserved for later reuse
-      // ============================================================================
-      // contracts: contractsReducer,
-      // contract: contractReducer,
-      // ============================================================================
-      
-      // New temporary features
       comparison: comparisonReducer,
       batchComparison: batchComparisonReducer,
       allVsAllComparison: allVsAllComparisonReducer,
