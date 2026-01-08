@@ -2,6 +2,7 @@ import { configureStore } from "@reduxjs/toolkit";
 
 import comparisonReducer from "@/features/comparison/comparisonSlice";
 import batchComparisonReducer from "@/features/batchComparison/batchComparisonSlice";
+import allVsAllComparisonReducer from "@/features/allVsAllComparison/allVsAllComparisonSlice";
 import chatReducer from "@/features/chat/chatSlice";
 import { api } from "@/services/api";
 
@@ -18,6 +19,7 @@ export const makeStore = () =>
       // New temporary features
       comparison: comparisonReducer,
       batchComparison: batchComparisonReducer,
+      allVsAllComparison: allVsAllComparisonReducer,
       chat: chatReducer,
       [api.reducerPath]: api.reducer,
     },

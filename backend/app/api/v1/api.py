@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.v1.endpoints import bilingual, contracts
-from app.api.v1.endpoints import compare, batch_compare, chat
+from app.api.v1.endpoints import compare, batch_compare, chat, all_vs_all_compare
 
 api_router = APIRouter()
 
@@ -15,4 +15,5 @@ api_router = APIRouter()
 # New temporary endpoints for testing
 api_router.include_router(compare.router, prefix="/compare", tags=["compare"])
 api_router.include_router(batch_compare.router, prefix="/compare", tags=["batch-compare"])
+api_router.include_router(all_vs_all_compare.router, prefix="/compare", tags=["all-vs-all-compare"])
 api_router.include_router(chat.router, prefix="/chat", tags=["chat"])

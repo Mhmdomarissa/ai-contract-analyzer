@@ -25,10 +25,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
-import { Loader2, GitCompare, Sparkles, RotateCcw, Trash2, ListChecks } from 'lucide-react';
+import { Loader2, GitCompare, Sparkles, RotateCcw, Trash2, ListChecks, Network } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import BatchComparison from '@/components/BatchComparison';
+import AllVsAllComparison from '@/components/AllVsAllComparison';
 import FloatingChatButton from '@/components/FloatingChatButton';
 
 export default function TestingPage() {
@@ -99,7 +100,7 @@ export default function TestingPage() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsList className="grid w-full max-w-3xl grid-cols-3">
             <TabsTrigger value="single" className="flex items-center gap-2">
               <GitCompare className="w-4 h-4" />
               Single (A vs B)
@@ -107,6 +108,10 @@ export default function TestingPage() {
             <TabsTrigger value="batch" className="flex items-center gap-2">
               <ListChecks className="w-4 h-4" />
               Batch (1 → N)
+            </TabsTrigger>
+            <TabsTrigger value="allvsall" className="flex items-center gap-2">
+              <Network className="w-4 h-4" />
+              All vs All (N → N)
             </TabsTrigger>
           </TabsList>
 
@@ -296,6 +301,11 @@ export default function TestingPage() {
           {/* Batch Comparison Tab */}
           <TabsContent value="batch" className="mt-6">
             <BatchComparison />
+          </TabsContent>
+
+          {/* All-vs-All Comparison Tab */}
+          <TabsContent value="allvsall" className="mt-6">
+            <AllVsAllComparison />
           </TabsContent>
         </Tabs>
       </div>
